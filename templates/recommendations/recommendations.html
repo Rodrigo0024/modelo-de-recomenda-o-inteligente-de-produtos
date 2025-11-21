@@ -1,0 +1,206 @@
+{% extends 'recommendations/base.html' %}
+
+{% block title %}Minhas Recomendações{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <h1 class="mb-4">📊 Minhas Recomendações</h1>
+        
+        {% if user.is_authenticated %}
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">🎯 Recomendações Personalizadas</h5>
+                </div>
+                <div class="card-body">
+                    <div id="recommendations-container" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-2">Carregando suas recomendações...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">⚡ Ações Rápidas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                        <button id="load-recommendations" class="btn btn-primary me-md-2">
+                            🔄 Carregar Recomendações
+                        </button>
+                        <button id="train-model" class="btn btn-outline-secondary">
+                            🎯 Treinar Modelo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-warning text-center">
+                <h4>⚠️ Acesso Restrito</h4>
+                <p>Você precisa estar logado para ver suas recomendações personalizadas.</p>
+                <a href="{% url 'admin:login' %}?next={{ request.path }}" class="btn btn-primary">
+                    🔑 Fazer Login
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loadBtn = document.getElementById('load-recommendations');
+    const trainBtn = document.getElementById('train-model');
+    const container = document.getElementById('recommendations-container');
+
+    function showLoading() {
+        container.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2">Carregando suas recomendações...</p>
+            </div>
+        `;
+    }
+
+    function showError(message) {
+        container.innerHTML = `
+            <div class="alert alert-danger text-center">
+                <h5>❌ Erro</h5>
+                <p class="mb-0">${message}</p>
+                <small>
+                    <a href="{% url 'train_recommender' %}" class="alert-link">Treine o modelo primeiro</a>
+                </small>
+            </div>
+        `;
+    }
+
+    function showRecommendations(recommendations) {
+        if (recommendations.length > 0) {
+            let html = '<div class="row">';
+            recommendations.forEach((rec, index) => {
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h6 class="card-title">${rec.name}</h6>
+                                    <span class="badge bg-primary">#${index + 1}</span>
+                                </div>
+                                <p class="card-text text-muted small">Categoria: ${rec.category}</p>
+                                <p class="card-text fw-bold text-primary">R$ ${rec.price}</p>
+                                <div class="mt-2">
+                                    <a href="/product/${rec.id}/" class="btn btn-sm btn-outline-primary w-100">
+                                        Ver Produto
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = `
+                <div class="alert alert-info text-center">
+                    <h5>📭 Nenhuma recomendação disponível</h5>
+                    <p class="mb-0">Não há recomendações disponíveis no momento.</p>
+                    <a href="{% url 'train_recommender' %}" class="btn btn-primary mt-2">
+                        🎯 Treinar Modelo
+                    </a>
+                </div>
+            `;
+        }
+    }
+
+    if (loadBtn) {
+        loadBtn.addEventListener('click', function() {
+            showLoading();
+            
+            // ✅ CORREÇÃO: URL CORRETA
+            fetch('/api/get-recommendations/')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro na rede: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Resposta da API:', data); // Para debug
+                    if (data.status === 'success') {
+                        showRecommendations(data.recommendations);
+                    } else {
+                        showError(data.message || 'Erro ao carregar recomendações');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro detalhado:', error);
+                    showError('Erro ao carregar recomendações: ' + error.message);
+                });
+        });
+
+        // Carregar recomendações automaticamente
+        loadBtn.click();
+    }
+
+    if (trainBtn) {
+        trainBtn.addEventListener('click', function() {
+            const originalText = trainBtn.innerHTML;
+            trainBtn.innerHTML = '⏳ Treinando...';
+            trainBtn.disabled = true;
+
+            fetch('/train/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro na rede: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    let successMessage = '✅ Modelo treinado com sucesso!\n\n';
+                    
+                    if (data.stats) {
+                        successMessage += '📊 Estatísticas:\n';
+                        successMessage += '• Produtos: ' + data.stats.products_count + '\n';
+                        successMessage += '• Interações: ' + data.stats.interactions_count + '\n';
+                        successMessage += '• Data: ' + new Date(data.stats.trained_at).toLocaleString();
+                    }
+                    
+                    alert(successMessage);
+                    
+                    // Recarregar recomendações automaticamente
+                    if (loadBtn) {
+                        setTimeout(() => {
+                            loadBtn.click();
+                        }, 1000);
+                    }
+                } else {
+                    alert('❌ Erro ao treinar modelo: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('❌ Erro de conexão ao treinar modelo. Verifique o console.');
+            })
+            .finally(() => {
+                trainBtn.innerHTML = originalText;
+                trainBtn.disabled = false;
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

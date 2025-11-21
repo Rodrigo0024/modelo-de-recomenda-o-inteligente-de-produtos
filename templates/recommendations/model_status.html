@@ -1,0 +1,64 @@
+{% extends 'recommendations/base.html' %}
+
+{% block title %}Status do Modelo{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <h1 class="mb-4">📊 Status do Modelo</h1>
+        
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">🤖 Status do Modelo de Recomendações</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Modelo Treinado:</strong> 
+                            {% if status.is_trained %}
+                                <span class="badge bg-success">✅ Sim</span>
+                            {% else %}
+                                <span class="badge bg-warning">❌ Não</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Produtos no Modelo:</strong> {{ status.products_in_model }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Usuários no Modelo:</strong> {{ status.users_in_model }}</p>
+                        <p><strong>Último Treinamento:</strong> {{ status.training_time }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">📈 Estatísticas do Banco de Dados</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 text-center">
+                        <h3>{{ stats.total_products }}</h3>
+                        <p class="text-muted">Produtos Cadastrados</p>
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <h3>{{ stats.total_interactions }}</h3>
+                        <p class="text-muted">Total de Interações</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">⚡ Ações</h5>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'train_recommender' %}" class="btn btn-primary">🎯 Treinar Modelo</a>
+                <a href="{% url 'user_recommendations' %}" class="btn btn-success">📊 Ver Recomendações</a>
+                <a href="{% url 'admin:index' %}" class="btn btn-secondary">⚙️ Painel Admin</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

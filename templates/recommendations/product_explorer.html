@@ -1,0 +1,741 @@
+{% extends 'recommendations/base.html' %}
+{% load static %}
+
+{% block title %}Explorar Produtos - Sistema de Recomendações{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>🛍️ Explorar Produtos</h1>
+                <div>
+                    <a href="{% url 'user_dashboard' %}" class="btn btn-outline-primary me-2">
+                        📊 Meu Dashboard
+                    </a>
+                    <a href="{% url 'model_status' %}" class="btn btn-outline-secondary">
+                        🤖 Status do Modelo
+                    </a>
+                    <a href="{% url 'train_recommender' %}" class="btn btn-outline-warning ms-2">
+                        🎯 Treinar Modelo
+                    </a>
+                </div>
+            </div>
+            <p class="text-muted">Navegue por todos os produtos e veja as recomendações melhorarem conforme você interage!</p>
+            
+            <!-- Alertas de Status -->
+            {% if not user_recommendations %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <strong>💡 Dica:</strong> Treine o modelo primeiro para ver recomendações personalizadas!
+                <a href="{% url 'train_recommender' %}" class="alert-link">Treinar Modelo Agora</a>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Categorias -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">📂 Categorias</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary">
+                            Todos
+                        </a>
+                        {% for category in categories %}
+                        <a href="{% url 'category_products' category %}" class="btn btn-outline-secondary">
+                            {{ category }}
+                        </a>
+                        {% empty %}
+                        <p class="text-muted">Nenhuma categoria disponível</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros Rápidos -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body py-2">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <small class="text-muted">Ordenar por:</small>
+                            <select class="form-select form-select-sm d-inline-block w-auto ms-2" id="sort-products">
+                                <option value="newest">Mais Recentes</option>
+                                <option value="price_low">Menor Preço</option>
+                                <option value="price_high">Maior Preço</option>
+                                <option value="name">Nome A-Z</option>
+                                <option value="popular">Mais Populares</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <div class="input-group input-group-sm" style="max-width: 300px;">
+                                <input type="text" class="form-control" placeholder="Buscar produtos..." id="search-products">
+                                <button class="btn btn-outline-secondary" type="button" id="search-button">🔍</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Coluna Principal - Produtos -->
+        <div class="col-lg-8">
+            <!-- Produtos Populares -->
+            {% if popular_products %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">🔥 Produtos Populares</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for product in popular_products %}
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card h-100 product-card" data-product-id="{{ product.id }}">
+                                {% if product.image_url %}
+                                <img src="{{ product.image_url }}" class="card-img-top" alt="{{ product.name }}" style="height: 120px; object-fit: cover;">
+                                {% else %}
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 120px;">
+                                    <span class="text-muted">🖼️ Sem imagem</span>
+                                </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ product.name|truncatechars:30 }}</h6>
+                                    <p class="card-text small text-muted">{{ product.category }}</p>
+                                    <p class="card-text fw-bold text-primary">R$ {{ product.price }}</p>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-primary w-100">
+                                        Ver Detalhes
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Todos os Produtos -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">📦 Todos os Produtos</h5>
+                        <div>
+                            <span class="badge bg-primary">{{ total_products }} produtos no total</span>
+                            {% if page_obj %}
+                            <span class="badge bg-secondary ms-1">
+                                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Informações de Paginação -->
+                    {% if page_obj and page_obj.paginator.num_pages > 1 %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <span class="text-muted small">
+                                Mostrando {{ page_obj.start_index }}-{{ page_obj.end_index }} de {{ total_products }} produtos
+                            </span>
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                                </li>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+
+                    <div class="row" id="products-container">
+                        {% for product in products %}
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card h-100 product-card" data-product-id="{{ product.id }}">
+                                {% if product.image_url %}
+                                <img src="{{ product.image_url }}" class="card-img-top" alt="{{ product.name }}" style="height: 150px; object-fit: cover;">
+                                {% else %}
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 150px;">
+                                    <span class="text-muted">🖼️ Sem imagem</span>
+                                </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ product.name }}</h6>
+                                    <p class="card-text small text-muted">
+                                        <span class="badge bg-secondary">{{ product.category }}</span>
+                                    </p>
+                                    <p class="card-text small">{{ product.description|truncatechars:60 }}</p>
+                                    <p class="card-text fw-bold text-success">R$ {{ product.price }}</p>
+                                    <div class="d-flex justify-content-between align-items-center small">
+                                        <span class="text-muted">
+                                            {% if product.interaction_count %}
+                                            👁️ {{ product.interaction_count }} visualizações
+                                            {% else %}
+                                            👁️ 0 visualizações
+                                            {% endif %}
+                                        </span>
+                                        <span class="text-muted">
+                                            ⭐ {{ product.average_rating|default:"0.0" }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="d-grid gap-2">
+                                        <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-primary">
+                                            👀 Ver Detalhes
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-success add-to-wishlist" data-product-id="{{ product.id }}">
+                                            💝 Lista de Desejos
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info quick-view" data-product-id="{{ product.id }}">
+                                            ⚡ Visualização Rápida
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center">
+                            <div class="alert alert-info">
+                                <h6>📭 Nenhum produto encontrado</h6>
+                                <p class="mb-0">Adicione produtos através do painel administrativo.</p>
+                                <a href="/admin/recommendations/product/add/" class="btn btn-sm btn-primary mt-2">
+                                    ➕ Adicionar Produto
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Paginação no final -->
+                    {% if page_obj and page_obj.paginator.num_pages > 1 %}
+                    <div class="d-flex justify-content-center mt-4">
+                        <nav>
+                            <ul class="pagination">
+                                {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">‹ Anterior</a>
+                                </li>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima ›</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar - Recomendações em Tempo Real -->
+        <div class="col-lg-4">
+            <div class="sticky-top" style="top: 20px;">
+                <!-- Status do Modelo -->
+                <div class="card mb-3">
+                    <div class="card-header bg-secondary text-white">
+                        <h6 class="mb-0">🤖 Status do Sistema</h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small>Modelo Treinado:</small>
+                            <span id="model-status-badge" class="badge {% if user_recommendations %}bg-success{% else %}bg-warning{% endif %}">
+                                {% if user_recommendations %}✅ Ativo{% else %}⏳ Pendente{% endif %}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small>Produtos no Sistema:</small>
+                            <span class="badge bg-info">{{ total_products }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recomendações -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">🎯 Suas Recomendações</h5>
+                            <div>
+                                <button id="refresh-recommendations" class="btn btn-sm btn-light" title="Atualizar recomendações">
+                                    🔄
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="recommendations-container">
+                            {% if user_recommendations %}
+                                {% for product in user_recommendations %}
+                                <div class="card mb-2 recommendation-item">
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title small">{{ product.name }}</h6>
+                                        <p class="card-text small text-muted mb-1">{{ product.category }}</p>
+                                        <p class="card-text small fw-bold text-primary">R$ {{ product.price }}</p>
+                                        <div class="d-grid gap-1">
+                                            <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-outline-primary">
+                                                Ver Produto
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-success add-to-wishlist" data-product-id="{{ product.id }}">
+                                                💝 Lista de Desejos
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-3">
+                                    <div class="mb-2">
+                                        <i class="fas fa-robot fa-2x text-muted"></i>
+                                    </div>
+                                    <p class="text-muted small mb-2">Treine o modelo para ver recomendações personalizadas</p>
+                                    <a href="{% url 'train_recommender' %}" class="btn btn-sm btn-warning">
+                                        🎯 Treinar Modelo
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estatísticas Rápidas -->
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">📈 Suas Estatísticas</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="user-stats">
+                            <div class="text-center">
+                                <p class="text-muted small mb-2">Interaja com produtos para ver suas estatísticas</p>
+                                <a href="{% url 'user_dashboard' %}" class="btn btn-sm btn-outline-primary">
+                                    📊 Ver Dashboard Completo
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Visualização Rápida -->
+<div class="modal fade" id="quickViewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickViewTitle">Detalhes do Produto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="quickViewContent">
+                <!-- Conteúdo carregado via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Sistema de Recomendações Iniciado');
+    
+    // Botão para atualizar recomendações
+    document.getElementById('refresh-recommendations').addEventListener('click', function() {
+        console.log('🔄 Atualizando recomendações...');
+        loadRecommendations();
+    });
+
+    // Adicionar à lista de desejos
+    document.querySelectorAll('.add-to-wishlist').forEach(button => {
+        button.addEventListener('click', function() {
+            const productId = this.getAttribute('data-product-id');
+            const productName = this.closest('.card').querySelector('.card-title').textContent;
+            console.log(`💝 Adicionando à lista de desejos: ${productName}`);
+            recordInteraction(productId, 'wishlist');
+            
+            // Feedback visual
+            const originalText = this.innerHTML;
+            this.innerHTML = '✅ Adicionado!';
+            this.classList.remove('btn-outline-success');
+            this.classList.add('btn-success');
+            
+            setTimeout(() => {
+                this.innerHTML = originalText;
+                this.classList.remove('btn-success');
+                this.classList.add('btn-outline-success');
+            }, 2000);
+        });
+    });
+
+    // Visualização rápida
+    document.querySelectorAll('.quick-view').forEach(button => {
+        button.addEventListener('click', function() {
+            const productId = this.getAttribute('data-product-id');
+            showQuickView(productId);
+        });
+    });
+
+    // Busca de produtos
+    document.getElementById('search-button').addEventListener('click', function() {
+        const searchTerm = document.getElementById('search-products').value;
+        if (searchTerm.trim()) {
+            window.location.href = `?search=${encodeURIComponent(searchTerm)}`;
+        }
+    });
+
+    // Enter na busca
+    document.getElementById('search-products').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('search-button').click();
+        }
+    });
+
+    // Ordenação de produtos
+    document.getElementById('sort-products').addEventListener('change', function() {
+        const sortBy = this.value;
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('sort', sortBy);
+        window.location.href = `?${urlParams.toString()}`;
+    });
+
+    // Registrar clique nos produtos
+    document.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (!e.target.closest('a') && !e.target.closest('button')) {
+                const productId = this.getAttribute('data-product-id');
+                const productName = this.querySelector('.card-title').textContent;
+                console.log(`👀 Visualizando produto: ${productName}`);
+                recordInteraction(productId, 'view');
+            }
+        });
+    });
+
+    // Função para carregar recomendações
+    function loadRecommendations() {
+        const container = document.getElementById('recommendations-container');
+        const badge = document.getElementById('model-status-badge');
+        
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2 text-muted small">Atualizando recomendações...</p>
+            </div>
+        `;
+
+        fetch('/api/get-recommendations/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('✅ Resposta das recomendações:', data);
+                
+                if (data.status === 'success') {
+                    if (data.recommendations && data.recommendations.length > 0) {
+                        let html = '';
+                        data.recommendations.forEach(rec => {
+                            html += `
+                                <div class="card mb-2 recommendation-item">
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title small">${rec.name}</h6>
+                                        <p class="card-text small text-muted mb-1">${rec.category}</p>
+                                        <p class="card-text small fw-bold text-primary">R$ ${rec.price}</p>
+                                        <div class="d-grid gap-1">
+                                            <a href="/product/${rec.id}/" class="btn btn-sm btn-outline-primary">
+                                                Ver Produto
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-success add-to-wishlist" data-product-id="${rec.id}">
+                                                💝 Lista de Desejos
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        container.innerHTML = html;
+                        badge.className = 'badge bg-success';
+                        badge.textContent = '✅ Ativo';
+                        
+                        // Re-attach event listeners to new buttons
+                        attachEventListeners();
+                        
+                    } else {
+                        container.innerHTML = `
+                            <div class="alert alert-info text-center">
+                                <p class="mb-0 small">Interaja com mais produtos para receber recomendações personalizadas!</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    container.innerHTML = `
+                        <div class="alert alert-warning text-center">
+                            <p class="mb-0 small">${data.message || 'Erro ao carregar recomendações'}</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erro detalhado:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger text-center">
+                        <p class="mb-0 small"><strong>Erro ${error.message.includes('404') ? '404' : ''}:</strong> ${error.message}</p>
+                        <small class="mt-2">
+                            Verifique se:<br>
+                            1. O modelo foi treinado<br>
+                            2. As URLs estão corretas<br>
+                            3. Há produtos no sistema
+                        </small>
+                    </div>
+                `;
+            });
+    }
+
+    // Função para registrar interações
+    function recordInteraction(productId, interactionType) {
+        const formData = new FormData();
+        formData.append('product_id', productId);
+        formData.append('interaction_type', interactionType);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        console.log(`📝 Registrando interação: ${interactionType} para produto ${productId}`);
+
+        fetch('/api/record-interaction/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erro HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('✅ Interação registrada com sucesso:', data.message);
+                // Atualiza recomendações após interação
+                setTimeout(() => loadRecommendations(), 500);
+                showToast('✅ ' + data.message, 'success');
+            } else {
+                console.error('❌ Erro na resposta:', data.message);
+                showToast('❌ ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erro ao registrar interação:', error);
+            showToast('❌ Erro ao registrar interação: ' + error.message, 'error');
+        });
+    }
+
+    // Função para mostrar visualização rápida
+    function showQuickView(productId) {
+        const modal = new bootstrap.Modal(document.getElementById('quickViewModal'));
+        const content = document.getElementById('quickViewContent');
+        
+        content.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2">Carregando detalhes do produto...</p>
+            </div>
+        `;
+        
+        modal.show();
+        
+        // Carregar dados reais do produto via API
+        fetch(`/api/product-details/${productId}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Produto não encontrado');
+                }
+                return response.json();
+            })
+            .then(product => {
+                content.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            ${product.image_url ? 
+                                `<img src="${product.image_url}" class="img-fluid rounded" alt="${product.name}">` : 
+                                `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 200px;">
+                                    <span class="text-muted">🖼️ Sem imagem</span>
+                                </div>`
+                            }
+                        </div>
+                        <div class="col-md-6">
+                            <h4>${product.name}</h4>
+                            <p class="text-muted">${product.category}</p>
+                            <p class="h5 text-success">R$ ${product.price}</p>
+                            <p class="mt-3">${product.description}</p>
+                            <div class="d-grid gap-2 mt-4">
+                                <a href="/product/${product.id}/" class="btn btn-primary">Ver Detalhes Completos</a>
+                                <button class="btn btn-outline-success add-to-wishlist" data-product-id="${product.id}">
+                                    💝 Adicionar à Lista de Desejos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                content.innerHTML = `
+                    <div class="text-center">
+                        <p class="text-muted">Erro ao carregar detalhes do produto.</p>
+                        <a href="/product/${productId}/" class="btn btn-primary">Ver Detalhes Completos</a>
+                    </div>
+                `;
+            });
+    }
+
+    // Função para mostrar toast de feedback
+    function showToast(message, type = 'info') {
+        // Remove toasts existentes
+        document.querySelectorAll('.alert-toast').forEach(toast => toast.remove());
+        
+        // Cria o elemento do toast
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show alert-toast position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                <span class="me-2">${type === 'success' ? '✅' : type === 'error' ? '❌' : '💡'}</span>
+                <span class="flex-grow-1">${message}</span>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 4000);
+    }
+
+    // Re-attach event listeners to dynamically created elements
+    function attachEventListeners() {
+        document.querySelectorAll('.recommendation-item .add-to-wishlist').forEach(button => {
+            button.addEventListener('click', function() {
+                const productId = this.getAttribute('data-product-id');
+                recordInteraction(productId, 'wishlist');
+            });
+        });
+    }
+
+    // Carrega recomendações automaticamente ao abrir a página
+    console.log('📦 Carregando recomendações iniciais...');
+    loadRecommendations();
+});
+
+</script>
+
+<style>
+.product-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid #e9ecef;
+}
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: #0d6efd;
+}
+.recommendation-item {
+    transition: all 0.2s ease;
+    border: 1px solid #e9ecef;
+}
+.recommendation-item:hover {
+    transform: translateX(5px);
+    border-color: #198754;
+}
+.alert-toast {
+    animation: slideInRight 0.3s ease;
+    border: none;
+    border-radius: 8px;
+}
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+.pagination .page-link {
+    color: #495057;
+    border: 1px solid #dee2e6;
+}
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+.card-img-top {
+    transition: transform 0.3s ease;
+}
+.product-card:hover .card-img-top {
+    transform: scale(1.05);
+}
+.btn-success {
+    background-color: #198754;
+    border-color: #198754;
+}
+</style>
+{% endblock %}

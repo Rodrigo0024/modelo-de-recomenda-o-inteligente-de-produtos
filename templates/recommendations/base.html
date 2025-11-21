@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Recomendações{% endblock %}</title>
+    {% load django_bootstrap5 %}
+    {% bootstrap_css %}
+    {% bootstrap_javascript %}
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .product-card {
+            transition: transform 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .rating-stars {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'product_explorer' %}">
+                🛍️ Sistema de Recomendações
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav me-auto">
+                    <a class="nav-link" href="{% url 'product_explorer' %}">🏠 Explorar Produtos</a>
+                    <a class="nav-link" href="{% url 'user_dashboard' %}">📊 Meu Dashboard</a>  <!-- 👈 CORRIGIDO: 'dashboard' -> 'user_dashboard' -->
+                    <a class="nav-link" href="{% url 'train_recommender' %}">🎯 Treinar Modelo</a>
+                    <a class="nav-link" href="{% url 'model_status' %}">🤖 Status</a>
+                </div>
+                <div class="navbar-nav">
+                    {% if user.is_authenticated %}
+                        <span class="navbar-text me-3">👋 Olá, {{ user.username }}!</span>
+                        <a class="nav-link" href="{% url 'admin:logout' %}">🚪 Sair</a>
+                    {% else %}
+                        <a class="nav-link" href="{% url 'admin:login' %}">🔑 Login</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% bootstrap_messages %}
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="bg-dark text-light mt-5 py-3">
+        <div class="container text-center">
+            <p class="mb-0">Sistema de Recomendações Inteligentes &copy; 2025</p>
+        </div>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

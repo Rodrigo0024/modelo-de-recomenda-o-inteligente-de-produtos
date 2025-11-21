@@ -1,0 +1,71 @@
+{% extends 'recommendations/base.html' %}
+
+{% block title %}Home - Sistema de Recomendações{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 mx-auto text-center">
+        <div class="jumbotron bg-light p-5 rounded">
+            <h1 class="display-4 mb-4">🎯 Sistema de Recomendações</h1>
+            <p class="lead">Sistema inteligente de recomendações usando filtragem colaborativa e baseada em conteúdo.</p>
+            <hr class="my-4">
+            <p>Obtenha recomendações personalizadas baseadas no seu comportamento e preferências.</p>
+        </div>
+        
+        <div class="row mt-5">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3" style="font-size: 3rem;">📊</div>
+                        <h5 class="card-title">Treinar Modelo</h5>
+                        <p class="card-text">Treine o algoritmo de recomendações com os dados atuais para melhorar as sugestões.</p>
+                        <a href="{% url 'train_recommender' %}" class="btn btn-primary mt-auto">Treinar Modelo</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3" style="font-size: 3rem;">🎯</div>
+                        <h5 class="card-title">Minhas Recomendações</h5>
+                        <p class="card-text">Veja suas recomendações personalizadas baseadas no seu perfil e histórico.</p>
+                        <a href="{% url 'user_recommendations' %}" class="btn btn-success mt-auto">Ver Recomendações</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3" style="font-size: 3rem;">⚙️</div>
+                        <h5 class="card-title">Painel Admin</h5>
+                        <p class="card-text">Acesse o painel administrativo para gerenciar usuários e produtos.</p>
+                        <a href="{% url 'admin:index' %}" class="btn btn-secondary mt-auto">Acessar Admin</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">ℹ️ Como funciona o sistema?</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>🤝 Filtragem Colaborativa</h6>
+                                <p class="text-muted">Recomenda produtos baseado no comportamento de usuários similares a você.</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>📝 Baseado em Conteúdo</h6>
+                                <p class="text-muted">Recomenda produtos similares aos que você já interagiu anteriormente.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

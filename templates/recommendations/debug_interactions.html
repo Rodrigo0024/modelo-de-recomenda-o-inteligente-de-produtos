@@ -1,0 +1,56 @@
+{% extends 'recommendations/base.html' %}
+
+{% block title %}Debug - Interações{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>🔍 Debug - Interações do Usuário</h1>
+    
+    <div class="alert alert-info">
+        <strong>Usuário:</strong> {{ user.username }}<br>
+        <strong>Total de Interações:</strong> {{ total_count }}
+    </div>
+    
+    {% if interactions %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Produto</th>
+                <th>Tipo</th>
+                <th>Rating</th>
+                <th>Data</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for interaction in interactions %}
+            <tr>
+                <td>{{ interaction.id }}</td>
+                <td>{{ interaction.product.name }}</td>
+                <td>
+                    <span class="badge bg-primary">{{ interaction.interaction_type }}</span>
+                </td>
+                <td>
+                    {% if interaction.rating %}
+                    {{ interaction.rating }} ⭐
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>{{ interaction.created_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-warning">
+        ❌ Nenhuma interação encontrada para este usuário.
+    </div>
+    {% endif %}
+    
+    <div class="mt-3">
+        <a href="{% url 'user_dashboard' %}" class="btn btn-primary">Voltar ao Dashboard</a>
+        <a href="{% url 'product_explorer' %}" class="btn btn-success">Explorar Produtos</a>
+    </div>
+</div>
+{% endblock %}

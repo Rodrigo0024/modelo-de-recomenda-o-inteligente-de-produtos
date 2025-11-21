@@ -1,0 +1,448 @@
+{% extends 'recommendations/base.html' %}
+{% load static %}
+
+{% block title %}{% if products.paginator.count > 0 %}Produtos em {{ category_name }}{% else %}Categoria Não Encontrada{% endif %} - Sistema de Recomendações{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1>📂 {{ category_name }}</h1>
+                    <p class="text-muted mb-0">
+                        {% if show_all_message %}
+                        Nenhum produto encontrado na categoria "{{ category_name }}". Mostrando todos os produtos.
+                        {% else %}
+                        Explore produtos da categoria {{ category_name }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary">
+                        🛍️ Todos os Produtos
+                    </a>
+                    <a href="{% url 'user_dashboard' %}" class="btn btn-outline-secondary ms-2">
+                        📊 Meu Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'product_explorer' %}" class="text-decoration-none">
+                    Explorar Produtos
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                {% if show_all_message %}
+                Todos os Produtos (Fallback)
+                {% else %}
+                {{ category_name }}
+                {% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    {% if error %}
+    <!-- Mensagem de Erro -->
+    <div class="alert alert-danger mb-4">
+        <h6>❌ Erro</h6>
+        <p class="mb-0">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Estatísticas da Categoria -->
+    {% if products.paginator.count > 0 %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 col-6 mb-3 mb-md-0">
+                            <div class="border rounded p-3">
+                                <div class="h3 text-primary mb-1">{{ products.paginator.count }}</div>
+                                <small class="text-muted">📦 Total de Produtos</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3 mb-md-0">
+                            <div class="border rounded p-3">
+                                <div class="h3 text-success mb-1">{{ categories|length }}</div>
+                                <small class="text-muted">📂 Categorias</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="border rounded p-3">
+                                <div class="h3 text-warning mb-1">R$ {{ average_price|floatformat:2 }}</div>
+                                <small class="text-muted">💰 Preço Médio</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="border rounded p-3">
+                                <div class="h3 text-info mb-1">{{ total_views }}</div>
+                                <small class="text-muted">👁️ Visualizações</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body py-2">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <small class="text-muted">Ordenar por:</small>
+                            <select class="form-select form-select-sm d-inline-block w-auto ms-2" id="sort-products">
+                                <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>Mais Recentes</option>
+                                <option value="price_low" {% if request.GET.sort == 'price_low' %}selected{% endif %}>Menor Preço</option>
+                                <option value="price_high" {% if request.GET.sort == 'price_high' %}selected{% endif %}>Maior Preço</option>
+                                <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>Nome A-Z</option>
+                                <option value="popular" {% if request.GET.sort == 'popular' %}selected{% endif %}>Mais Populares</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <div class="input-group input-group-sm" style="max-width: 300px;">
+                                <input type="text" class="form-control" placeholder="Buscar produtos..." 
+                                       id="search-products" value="{{ request.GET.search|default:'' }}">
+                                <button class="btn btn-outline-secondary" type="button" id="search-button">🔍</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Categorias Relacionadas -->
+    {% if categories|length > 1 and not show_all_message %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">📂 Outras Categorias</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for category in categories %}
+                        {% if category and category != category_name %}
+                        <a href="{% url 'category_products' category %}" 
+                           class="btn btn-outline-secondary btn-sm">
+                            {{ category }}
+                        </a>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Produtos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            {% if show_all_message %}
+                            📦 Todos os Produtos (Fallback)
+                            {% else %}
+                            📦 Produtos em {{ category_name }}
+                            {% endif %}
+                        </h5>
+                        <div>
+                            <span class="badge bg-primary">{{ products.paginator.count }} produtos</span>
+                            {% if products.paginator.num_pages > 1 %}
+                            <span class="badge bg-secondary ms-1">
+                                Página {{ products.number }} de {{ products.paginator.num_pages }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if products.paginator.count > 0 %}
+                        <!-- Informações de Paginação -->
+                        {% if products.paginator.num_pages > 1 %}
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <span class="text-muted small">
+                                    Mostrando {{ products.start_index }}-{{ products.end_index }} de {{ products.paginator.count }} produtos
+                                </span>
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    {% if products.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ products.previous_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Anterior</a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% for num in products.paginator.page_range %}
+                                        {% if products.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                                        </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if products.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ products.next_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Próxima</a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                        {% endif %}
+
+                        <!-- Grid de Produtos -->
+                        <div class="row" id="products-container">
+                            {% for product in products %}
+                            <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                                <div class="card h-100 product-card" data-product-id="{{ product.id }}">
+                                    {% if product.image_url %}
+                                    <img src="{{ product.image_url }}" 
+                                         class="card-img-top" 
+                                         alt="{{ product.name }}"
+                                         style="height: 200px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" 
+                                         style="height: 200px;">
+                                        <span class="text-muted">🖼️ Sem imagem</span>
+                                    </div>
+                                    {% endif %}
+                                    <div class="card-body">
+                                        <h6 class="card-title">{{ product.name }}</h6>
+                                        {% if product.category %}
+                                        <p class="card-text small text-muted mb-2">
+                                            <span class="badge bg-secondary">{{ product.category }}</span>
+                                        </p>
+                                        {% endif %}
+                                        <p class="card-text small text-muted mb-2">{{ product.description|truncatechars:80|default:"Sem descrição" }}</p>
+                                        <p class="card-text fw-bold text-success mb-3">R$ {{ product.price }}</p>
+                                    </div>
+                                    <div class="card-footer bg-transparent">
+                                        <div class="d-grid gap-2">
+                                            <a href="{% url 'product_detail' product.id %}" 
+                                               class="btn btn-primary btn-sm">
+                                                <i class="fas fa-eye me-1"></i>Ver Detalhes
+                                            </a>
+                                            <button class="btn btn-outline-success btn-sm add-to-wishlist" 
+                                                    data-product-id="{{ product.id }}">
+                                                <i class="fas fa-heart me-1"></i>Lista de Desejos
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Paginação no final -->
+                        {% if products.paginator.num_pages > 1 %}
+                        <div class="d-flex justify-content-center mt-4">
+                            <nav>
+                                <ul class="pagination">
+                                    {% if products.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ products.previous_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">‹ Anterior</a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% for num in products.paginator.page_range %}
+                                        {% if products.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                        {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                                        </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if products.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ products.next_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Próxima ›</a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                        {% endif %}
+
+                    {% else %}
+                        <!-- Estado Vazio -->
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="fas fa-folder-open fa-3x text-muted"></i>
+                            </div>
+                            <h5 class="text-muted mb-3">Nenhum produto encontrado</h5>
+                            <p class="text-muted mb-4">Não há produtos disponíveis.</p>
+                            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                <a href="{% url 'product_explorer' %}" class="btn btn-primary">
+                                    <i class="fas fa-shopping-bag me-2"></i>Explorar Todos os Produtos
+                                </a>
+                                <a href="/admin/recommendations/product/add/" class="btn btn-outline-secondary">
+                                    <i class="fas fa-plus me-2"></i>Adicionar Produto
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Página de Categoria Carregada: {{ category_name }}');
+
+    // Adicionar à lista de desejos
+    document.querySelectorAll('.add-to-wishlist').forEach(button => {
+        button.addEventListener('click', function() {
+            const productId = this.getAttribute('data-product-id');
+            const productName = this.closest('.card').querySelector('.card-title').textContent;
+            console.log(`💝 Adicionando à lista de desejos: ${productName}`);
+            recordInteraction(productId, 'wishlist');
+            
+            // Feedback visual
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-check me-1"></i>Adicionado!';
+            this.classList.remove('btn-outline-success');
+            this.classList.add('btn-success');
+            
+            setTimeout(() => {
+                this.innerHTML = originalText;
+                this.classList.remove('btn-success');
+                this.classList.add('btn-outline-success');
+            }, 3000);
+        });
+    });
+
+    // Busca de produtos
+    document.getElementById('search-button').addEventListener('click', function() {
+        const searchTerm = document.getElementById('search-products').value;
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (searchTerm.trim()) {
+            urlParams.set('search', searchTerm);
+        } else {
+            urlParams.delete('search');
+        }
+        
+        urlParams.delete('page'); // Reset para primeira página
+        window.location.href = `?${urlParams.toString()}`;
+    });
+
+    // Enter na busca
+    document.getElementById('search-products').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('search-button').click();
+        }
+    });
+
+    // Ordenação de produtos
+    document.getElementById('sort-products').addEventListener('change', function() {
+        const sortBy = this.value;
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (sortBy && sortBy !== 'newest') {
+            urlParams.set('sort', sortBy);
+        } else {
+            urlParams.delete('sort');
+        }
+        
+        urlParams.delete('page'); // Reset para primeira página
+        window.location.href = `?${urlParams.toString()}`;
+    });
+
+    // Registrar clique nos produtos
+    document.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (!e.target.closest('a') && !e.target.closest('button')) {
+                const productId = this.getAttribute('data-product-id');
+                const productName = this.querySelector('.card-title').textContent;
+                console.log(`👀 Visualizando produto: ${productName}`);
+                recordInteraction(productId, 'view');
+                
+                // Redireciona para a página de detalhes
+                window.location.href = `/product/${productId}/`;
+            }
+        });
+    });
+
+    // Função para registrar interações
+    function recordInteraction(productId, interactionType) {
+        const formData = new FormData();
+        formData.append('product_id', productId);
+        formData.append('interaction_type', interactionType);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('/api/record-interaction/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('✅ Interação registrada:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao registrar interação:', error);
+        });
+    }
+});
+</script>
+
+<style>
+.product-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid #e9ecef;
+}
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: #0d6efd;
+}
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+}
+.pagination .page-link {
+    color: #495057;
+    border: 1px solid #dee2e6;
+}
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+</style>
+{% endblock %}

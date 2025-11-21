@@ -1,0 +1,343 @@
+{% extends 'recommendations/base.html' %}
+{% load static %}
+
+{% block title %}Meu Dashboard - Sistema de Recomendações{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>📊 Meu Dashboard</h1>
+                <div>
+                    <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary me-2">
+                        🛍️ Explorar Produtos
+                    </a>
+                    <a href="{% url 'train_recommender' %}" class="btn btn-outline-warning">
+                        🎯 Treinar Modelo
+                    </a>
+                </div>
+            </div>
+            <p class="text-muted">Acompanhe suas atividades e estatísticas no sistema</p>
+        </div>
+    </div>
+
+    <!-- Estatísticas Principais -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title text-primary">👁️ Visualizações</h5>
+                            <h2 class="text-primary">{{ total_views }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-eye fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                    <p class="card-text text-muted small">Produtos visualizados</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title text-success">💝 Lista de Desejos</h5>
+                            <h2 class="text-success">{{ wishlist_count }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-heart fa-2x text-success"></i>
+                        </div>
+                    </div>
+                    <p class="card-text text-muted small">Produtos favoritados</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title text-warning">⭐ Avaliações</h5>
+                            <h2 class="text-warning">{{ ratings_count }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-star fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                    <p class="card-text text-muted small">Produtos avaliados</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title text-info">📈 Interações</h5>
+                            <h2 class="text-info">{{ total_interactions }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-chart-line fa-2x text-info"></i>
+                        </div>
+                    </div>
+                    <p class="card-text text-muted small">Total de interações</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Coluna Esquerda - Atividades Recentes -->
+        <div class="col-lg-8 mb-4">
+            <!-- Atividades Recentes -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">🕒 Atividades Recentes</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_interactions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Tipo</th>
+                                    <th>Avaliação</th>
+                                    <th>Data</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for interaction in recent_interactions %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'product_detail' interaction.product.id %}" class="text-decoration-none">
+                                            {{ interaction.product.name }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if interaction.interaction_type == 'view' %}bg-info
+                                            {% elif interaction.interaction_type == 'wishlist' %}bg-success
+                                            {% elif interaction.interaction_type == 'rating' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {% if interaction.interaction_type == 'view' %}👁️ Visualização
+                                            {% elif interaction.interaction_type == 'wishlist' %}💝 Lista de Desejos
+                                            {% elif interaction.interaction_type == 'rating' %}⭐ Avaliação
+                                            {% else %}{{ interaction.interaction_type }}{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if interaction.rating %}
+                                        <div class="rating-stars-small">
+                                            {% for i in "12345" %}
+                                            <span class="{% if forloop.counter <= interaction.rating %}text-warning{% else %}text-muted{% endif %}">★</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-muted small">{{ interaction.created_at|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Nenhuma atividade registrada ainda.</p>
+                        <a href="{% url 'product_explorer' %}" class="btn btn-primary">
+                            🛍️ Explorar Produtos
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Produtos Mais Visualizados -->
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">👀 Meus Produtos Mais Visualizados</h5>
+                </div>
+                <div class="card-body">
+                    {% if most_viewed_products %}
+                    <div class="row">
+                        {% for product in most_viewed_products %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="row g-0">
+                                    <div class="col-4">
+                                        {% if product.image_url %}
+                                        <img src="{{ product.image_url }}" class="img-fluid rounded-start h-100 w-100" alt="{{ product.name }}" style="object-fit: cover;">
+                                        {% else %}
+                                        <div class="bg-light d-flex align-items-center justify-content-center h-100 w-100">
+                                            <span class="text-muted small">🖼️ Sem imagem</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-8">
+                                        <div class="card-body">
+                                            <h6 class="card-title">{{ product.name|truncatechars:30 }}</h6>
+                                            <p class="card-text small text-muted">{{ product.category }}</p>
+                                            <p class="card-text fw-bold text-success">R$ {{ product.price }}</p>
+                                            <div class="d-flex justify-content-between align-items-center small text-muted">
+                                                <span>👁️ {{ product.view_count }} views</span>
+                                                {% if product.rating %}
+                                                <span>⭐ {{ product.rating }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-eye-slash fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Você ainda não visualizou nenhum produto.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna Direita - Estatísticas e Recomendações -->
+        <div class="col-lg-4">
+            <!-- Estatísticas por Categoria -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📂 Interações por Categoria</h5>
+                </div>
+                <div class="card-body">
+                    {% if category_stats %}
+                    <div class="list-group list-group-flush">
+                        {% for stat in category_stats %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="fw-bold">{{ stat.category }}</span>
+                            <div>
+                                <span class="badge bg-primary rounded-pill me-1">👁️ {{ stat.view_count }}</span>
+                                <span class="badge bg-success rounded-pill me-1">💝 {{ stat.wishlist_count }}</span>
+                                <span class="badge bg-warning rounded-pill">⭐ {{ stat.rating_count }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-chart-pie fa-2x text-muted mb-2"></i>
+                        <p class="text-muted small">Nenhuma interação por categoria</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Status do Modelo -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">🤖 Status do Modelo</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Modelo Treinado:</span>
+                        <span class="badge {% if model_trained %}bg-success{% else %}bg-warning{% endif %}">
+                            {% if model_trained %}✅ Ativo{% else %}⏳ Pendente{% endif %}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Interações Mínimas:</span>
+                        <span class="badge {% if total_interactions >= 10 %}bg-success{% else %}bg-warning{% endif %}">
+                            {{ total_interactions }}/10
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Recomendações:</span>
+                        <span class="badge {% if user_recommendations %}bg-success{% else %}bg-secondary{% endif %}">
+                            {% if user_recommendations %}{{ user_recommendations|length }} disponíveis{% else %}Nenhuma{% endif %}
+                        </span>
+                    </div>
+                    
+                    {% if not model_trained or total_interactions < 10 %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <small>
+                            <strong>💡 Dica:</strong> 
+                            {% if total_interactions < 10 %}
+                            Interaja com mais produtos para melhorar as recomendações.
+                            {% else %}
+                            Treine o modelo para ativar as recomendações personalizadas.
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Ações Rápidas -->
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">⚡ Ações Rápidas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'train_recommender' %}" class="btn btn-warning">
+                            🎯 Treinar Modelo de Recomendação
+                        </a>
+                        <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary">
+                            🛍️ Explorar Mais Produtos
+                        </a>
+                        <a href="{% url 'user_recommendations' %}" class="btn btn-outline-success">
+                            📋 Ver Minhas Recomendações
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📊 Dashboard carregado');
+    
+    // Atualizar estatísticas periodicamente (opcional)
+    function updateStats() {
+        console.log('🔄 Atualizando estatísticas...');
+        // Aqui você pode adicionar chamadas AJAX para atualizar estatísticas em tempo real
+    }
+    
+    // Atualizar a cada 30 segundos (opcional)
+    // setInterval(updateStats, 30000);
+});
+</script>
+
+<style>
+.rating-stars-small {
+    font-size: 0.8rem;
+}
+.card {
+    transition: transform 0.2s ease;
+}
+.card:hover {
+    transform: translateY(-2px);
+}
+.list-group-item {
+    border: none;
+    padding: 0.75rem 0;
+}
+.badge {
+    font-size: 0.7rem;
+}
+</style>
+{% endblock %}

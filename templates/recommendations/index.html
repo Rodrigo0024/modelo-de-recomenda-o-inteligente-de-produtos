@@ -1,0 +1,42 @@
+{% extends 'recommendations/base.html' %}
+
+{% block title %}Página Principal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto text-center">
+        <div class="jumbotron bg-light p-5 rounded">
+            <h1 class="display-4 mb-4">🚀 Sistema de Recomendações Inteligentes</h1>
+            <p class="lead">Sistema híbrido de recomendações usando filtragem colaborativa e baseada em conteúdo.</p>
+        </div>
+        
+        <div class="mt-5">
+            <h3 class="mb-4">🔍 Como funciona nosso sistema?</h3>
+            <div class="row mt-4">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">🤝 Filtragem Colaborativa</h5>
+                            <p class="card-text">Analisa o comportamento de usuários similares para recomendar produtos que pessoas com gostos parecidos gostaram.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">📝 Baseado em Conteúdo</h5>
+                            <p class="card-text">Recomenda produtos similares aos que você já interagiu, analisando características como categoria, descrição e nome.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <a href="{% url 'home' %}" class="btn btn-primary btn-lg">
+                ← Voltar para Home
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

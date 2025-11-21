@@ -1,0 +1,103 @@
+{% extends 'recommendations/base.html' %}
+
+{% block title %}Treinar Modelo - Sistema de Recomendações{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">🎯 Treinar Modelo de Recomendações</h3>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="mb-3">
+                        <i class="fas fa-robot" style="font-size: 4rem; color: #6c757d;"></i>
+                    </div>
+                    <p class="lead">Treine o algoritmo de recomendações com os dados atuais do sistema.</p>
+                </div>
+
+                <!-- Estatísticas Atuais -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">📊 Dados Atuais do Sistema</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 bg-info bg-opacity-10">
+                                    <h3 class="text-primary">{{ stats.total_products }}</h3>
+                                    <p class="mb-0 text-muted">Produtos Cadastrados</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 bg-success bg-opacity-10">
+                                    <h3 class="text-success">{{ stats.total_interactions }}</h3>
+                                    <p class="mb-0 text-muted">Total de Interações</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 bg-warning bg-opacity-10">
+                                    <h3 class="text-warning">{{ stats.unique_users }}</h3>
+                                    <p class="mb-0 text-muted">Usuários Únicos</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informações do Treinamento -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">ℹ️ Sobre o Treinamento</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>🤝 Filtragem Colaborativa</h6>
+                                <p class="small text-muted">
+                                    Analisa padrões de comportamento entre usuários similares para fazer recomendações.
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>📝 Baseado em Conteúdo</h6>
+                                <p class="small text-muted">
+                                    Recomenda produtos similares baseado em características como nome, descrição e categoria.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Treinamento -->
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-play-circle me-2"></i>
+                            Iniciar Treinamento do Modelo
+                        </button>
+                    </div>
+                    <div class="text-center mt-2">
+                        <small class="text-muted">
+                            ⏰ O processo pode levar alguns segundos dependendo da quantidade de dados.
+                        </small>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Navegação -->
+        <div class="text-center mt-4">
+            <a href="{% url 'model_status' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-chart-bar me-1"></i>
+                Ver Status do Modelo
+            </a>
+            <a href="{% url 'user_recommendations' %}" class="btn btn-outline-success">
+                <i class="fas fa-star me-1"></i>
+                Ver Recomendações
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

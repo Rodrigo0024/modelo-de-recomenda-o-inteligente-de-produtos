@@ -1,0 +1,548 @@
+{% extends 'recommendations/base.html' %}
+{% load static %}
+
+{% block title %}{{ product.name }} - Sistema de Recomendações{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'product_explorer' %}" class="text-decoration-none">
+                    🛍️ Explorar Produtos
+                </a>
+            </li>
+            {% if product.category %}
+            <li class="breadcrumb-item">
+                <a href="{% url 'category_products' product.category %}" class="text-decoration-none">
+                    {{ product.category }}
+                </a>
+            </li>
+            {% endif %}
+            <li class="breadcrumb-item active" aria-current="page">{{ product.name|truncatechars:30 }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Coluna da Imagem e Galeria -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if product.image_url %}
+                    <img src="{{ product.image_url }}" 
+                         class="img-fluid rounded" 
+                         alt="{{ product.name }}"
+                         style="max-height: 400px; object-fit: contain;">
+                    {% else %}
+                    <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                         style="height: 400px;">
+                        <div class="text-muted">
+                            <i class="fas fa-image fa-3x mb-3"></i>
+                            <p>🖼️ Sem imagem disponível</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Ações Rápidas -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success btn-lg add-to-wishlist" 
+                                data-product-id="{{ product.id }}">
+                            💝 Adicionar à Lista de Desejos
+                        </button>
+                        <button class="btn btn-outline-primary quick-share" 
+                                data-product-id="{{ product.id }}">
+                            📤 Compartilhar Produto
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna de Informações do Produto -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h4 mb-0">{{ product.name }}</h2>
+                </div>
+                <div class="card-body">
+                    <!-- Preço -->
+                    <div class="mb-4">
+                        <h3 class="text-success display-6 fw-bold">R$ {{ product.price }}</h3>
+                        {% if product.category %}
+                        <span class="badge bg-secondary fs-6">{{ product.category }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Descrição -->
+                    <div class="mb-4">
+                        <h5 class="text-muted">📋 Descrição</h5>
+                        <p class="lead">{{ product.description }}</p>
+                    </div>
+
+                    <!-- Características -->
+                    {% if features_list %}
+                    <div class="mb-4">
+                        <h5 class="text-muted">✨ Características</h5>
+                        <ul class="list-unstyled">
+                            {% for feature in features_list %}
+                            <li class="mb-1">
+                                <i class="fas fa-check text-success me-2"></i>
+                                {{ feature }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Estatísticas CORRIGIDAS -->
+                    <div class="row text-center mb-4">
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 mb-1 text-primary" id="view-count">
+                                    {{ view_count }}
+                                </div>
+                                <small class="text-muted">👁️ Visualizações</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 mb-1 text-warning" id="average-rating">
+                                    {{ average_rating|floatformat:1 }}
+                                </div>
+                                <small class="text-muted">⭐ Avaliação</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 mb-1 text-success" id="wishlist-count">
+                                    {{ wishlist_count }}
+                                </div>
+                                <small class="text-muted">💝 Lista de Desejos</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Avaliação do Usuário - CORRIGIDA -->
+                    {% if user.is_authenticated %}
+                    <div class="mb-4">
+                        <h5 class="text-muted">🎯 Sua Avaliação</h5>
+                        <div class="rating-stars mb-2">
+                            {% for i in "12345" %}
+                            <button class="btn btn-sm rate-star 
+                                         {% if user_rating and forloop.counter <= user_rating %} 
+                                             btn-warning text-dark 
+                                         {% else %} 
+                                             btn-outline-warning 
+                                         {% endif %}" 
+                                    data-rating="{{ forloop.counter }}"
+                                    data-product-id="{{ product.id }}"
+                                    id="star-{{ forloop.counter }}">
+                                ⭐
+                            </button>
+                            {% endfor %}
+                        </div>
+                        
+                        {% if user_rating %}
+                        <div class="alert alert-success py-1 px-3 d-inline-block mb-2">
+                            <small>✅ Você avaliou com <strong>{{ user_rating }}</strong> estrelas</small>
+                        </div>
+                        <br>
+                        {% endif %}
+                        
+                        <small class="text-muted">Clique nas estrelas para avaliar</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Produtos Relacionados -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">🔄 Produtos Relacionados</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="related-products">
+                        <div class="col-12 text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Carregando produtos relacionados...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Carregando recomendações...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Produtos da Mesma Categoria -->
+    {% if same_category_products %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">📂 Outros Produtos em {{ product.category }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for related_product in same_category_products %}
+                        {% if related_product.id != product.id %}
+                        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+                            <div class="card h-100 product-card" data-product-id="{{ related_product.id }}">
+                                {% if related_product.image_url %}
+                                <img src="{{ related_product.image_url }}" 
+                                     class="card-img-top" 
+                                     alt="{{ related_product.name }}"
+                                     style="height: 150px; object-fit: cover;">
+                                {% else %}
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" 
+                                     style="height: 150px;">
+                                    <span class="text-muted">🖼️ Sem imagem</span>
+                                </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ related_product.name }}</h6>
+                                    <p class="card-text small text-muted">{{ related_product.category }}</p>
+                                    <p class="card-text fw-bold text-success">R$ {{ related_product.price }}</p>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <a href="{% url 'product_detail' related_product.id %}" 
+                                       class="btn btn-sm btn-primary w-100">
+                                        Ver Detalhes
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- DEBUG Section (remover depois que funcionar) -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning">
+                    <h6 class="mb-0">🐛 DEBUG Info</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Product ID:</strong> {{ product.id }}</p>
+                            <p><strong>View Count:</strong> {{ view_count }}</p>
+                            <p><strong>Wishlist Count:</strong> {{ wishlist_count }}</p>
+                            <p><strong>User Rating:</strong> {{ user_rating|default:"Nenhuma" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Average Rating:</strong> {{ average_rating|floatformat:1 }}</p>
+                            <p><strong>Features List:</strong> {{ features_list|length }} items</p>
+                            <p><strong>Same Category Products:</strong> {{ same_category_products|length }}</p>
+                            <p><strong>Product Category:</strong> "{{ product.category }}"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Compartilhamento -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📤 Compartilhar Produto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Compartilhe este produto com outras pessoas!</p>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="share-url" 
+                           value="{{ request.build_absolute_uri }}" readonly>
+                    <button class="btn btn-outline-secondary" type="button" id="copy-share-url">
+                        📋 Copiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Página de Detalhes do Produto Carregada');
+    console.log('🔍 User Rating:', '{{ user_rating }}');
+
+    // Adicionar à lista de desejos
+    document.querySelector('.add-to-wishlist').addEventListener('click', function() {
+        const productId = this.getAttribute('data-product-id');
+        const productName = '{{ product.name }}';
+        console.log(`💝 Adicionando à lista de desejos: ${productName}`);
+        recordInteraction(productId, 'wishlist');
+        
+        // Feedback visual
+        const originalText = this.innerHTML;
+        this.innerHTML = '✅ Adicionado à Lista de Desejos!';
+        this.classList.remove('btn-success');
+        this.classList.add('btn-outline-success');
+        
+        setTimeout(() => {
+            this.innerHTML = originalText;
+            this.classList.remove('btn-outline-success');
+            this.classList.add('btn-success');
+        }, 3000);
+    });
+
+    // Compartilhar produto
+    document.querySelector('.quick-share').addEventListener('click', function() {
+        const shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
+        shareModal.show();
+    });
+
+    // Copiar URL de compartilhamento
+    document.getElementById('copy-share-url').addEventListener('click', function() {
+        const shareUrl = document.getElementById('share-url');
+        shareUrl.select();
+        shareUrl.setSelectionRange(0, 99999);
+        document.execCommand('copy');
+        
+        // Feedback
+        const originalText = this.innerHTML;
+        this.innerHTML = '✅ Copiado!';
+        setTimeout(() => {
+            this.innerHTML = originalText;
+        }, 2000);
+    });
+
+    // Avaliação com estrelas
+    document.querySelectorAll('.rate-star').forEach(star => {
+        star.addEventListener('click', function() {
+            const rating = this.getAttribute('data-rating');
+            const productId = this.getAttribute('data-product-id');
+            console.log(`⭐ Avaliando produto ${productId} com ${rating} estrelas`);
+            rateProduct(productId, rating);
+        });
+    });
+
+    // Carregar produtos relacionados
+    loadRelatedProducts();
+
+    // Registrar visualização do produto
+    recordInteraction('{{ product.id }}', 'view');
+
+    // Função para carregar produtos relacionados
+    function loadRelatedProducts() {
+        const container = document.getElementById('related-products');
+        
+        fetch(`/api/get-recommendations/?product_id={{ product.id }}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.recommendations && data.recommendations.length > 0) {
+                    let html = '';
+                    data.recommendations.slice(0, 4).forEach(product => {
+                        html += `
+                            <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+                                <div class="card h-100 product-card" data-product-id="${product.id}">
+                                    ${product.image_url ? 
+                                        `<img src="${product.image_url}" class="card-img-top" alt="${product.name}" style="height: 150px; object-fit: cover;">` : 
+                                        `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 150px;">
+                                            <span class="text-muted">🖼️ Sem imagem</span>
+                                        </div>`
+                                    }
+                                    <div class="card-body">
+                                        <h6 class="card-title">${product.name}</h6>
+                                        <p class="card-text small text-muted">${product.category}</p>
+                                        <p class="card-text fw-bold text-success">R$ ${product.price}</p>
+                                    </div>
+                                    <div class="card-footer bg-transparent">
+                                        <a href="/product/${product.id}/" class="btn btn-sm btn-primary w-100">
+                                            Ver Detalhes
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = `
+                        <div class="col-12 text-center">
+                            <p class="text-muted">Nenhum produto relacionado encontrado.</p>
+                            <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary">
+                                Explorar Todos os Produtos
+                            </a>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar produtos relacionados:', error);
+                container.innerHTML = `
+                    <div class="col-12 text-center">
+                        <p class="text-muted">Erro ao carregar produtos relacionados.</p>
+                    </div>
+                `;
+            });
+    }
+
+    // Função para avaliar produto - VERSÃO MELHORADA
+    function rateProduct(productId, rating) {
+        console.log(`⭐ AVALIANDO: Produto ${productId} com ${rating} estrelas`);
+        
+        const formData = new FormData();
+        formData.append('product_id', productId);
+        formData.append('interaction_type', 'rating');
+        formData.append('rating', rating);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        // Mostrar loading nas estrelas
+        document.querySelectorAll('.rate-star').forEach(star => {
+            star.disabled = true;
+        });
+
+        fetch('{% url "record_interaction_api" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('📩 RESPOSTA DA AVALIAÇÃO:', data);
+            
+            if (data.status === 'success') {
+                showToast('✅ Avaliação registrada com sucesso!', 'success');
+                
+                // Destacar estrelas selecionadas
+                document.querySelectorAll('.rate-star').forEach(star => {
+                    const starRating = star.getAttribute('data-rating');
+                    if (starRating <= rating) {
+                        star.classList.remove('btn-outline-warning');
+                        star.classList.add('btn-warning', 'text-dark');
+                    } else {
+                        star.classList.remove('btn-warning', 'text-dark');
+                        star.classList.add('btn-outline-warning');
+                    }
+                    star.disabled = false;
+                });
+                
+                // Atualizar a página após 1.5 segundos para ver as mudanças
+                setTimeout(() => {
+                    console.log('🔄 Atualizando página para mostrar nova avaliação...');
+                    window.location.reload();
+                }, 1500);
+                
+            } else {
+                // Reativar estrelas em caso de erro
+                document.querySelectorAll('.rate-star').forEach(star => {
+                    star.disabled = false;
+                });
+                showToast('❌ Erro ao registrar avaliação: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ ERRO AO AVALIAR PRODUTO:', error);
+            // Reativar estrelas em caso de erro
+            document.querySelectorAll('.rate-star').forEach(star => {
+                star.disabled = false;
+            });
+            showToast('❌ Erro ao avaliar produto', 'error');
+        });
+    }
+
+    // Função para registrar interações
+    function recordInteraction(productId, interactionType) {
+        console.log(`🔍 REGISTRANDO INTERAÇÃO: ${interactionType} para produto ${productId}`);
+        
+        const formData = new FormData();
+        formData.append('product_id', productId);
+        formData.append('interaction_type', interactionType);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('{% url "record_interaction_api" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('✅ Interação registrada:', data.message);
+            } else {
+                console.error('❌ Erro na interação:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erro ao registrar interação:', error);
+        });
+    }
+
+    // Função para mostrar toast
+    function showToast(message, type = 'info') {
+        // Remover toasts existentes
+        document.querySelectorAll('.alert.position-fixed').forEach(toast => {
+            toast.remove();
+        });
+
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                <span class="flex-grow-1">${message}</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Auto-remover após 4 segundos
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 4000);
+    }
+});
+</script>
+
+<style>
+.product-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+.rating-stars .btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
+.rating-stars .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+}
+</style>
+{% endblock %}
