@@ -20,10 +20,12 @@
                     </p>
                 </div>
                 <div>
-                    <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary">
+                    <!-- ✅ CORREÇÃO: URL com namespace -->
+                    <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-outline-primary">
                         🛍️ Todos os Produtos
                     </a>
-                    <a href="{% url 'user_dashboard' %}" class="btn btn-outline-secondary ms-2">
+                    <!-- ✅ CORREÇÃO: URL com namespace -->
+                    <a href="{% url 'recommendations:user_dashboard' %}" class="btn btn-outline-secondary ms-2">
                         📊 Meu Dashboard
                     </a>
                 </div>
@@ -36,7 +38,8 @@
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
             <li class="breadcrumb-item">
-                <a href="{% url 'product_explorer' %}" class="text-decoration-none">
+                <!-- ✅ CORREÇÃO: URL com namespace -->
+                <a href="{% url 'recommendations:product_explorer' %}" class="text-decoration-none">
                     Explorar Produtos
                 </a>
             </li>
@@ -137,7 +140,8 @@
                     <div class="d-flex flex-wrap gap-2">
                         {% for category in categories %}
                         {% if category and category != category_name %}
-                        <a href="{% url 'category_products' category %}" 
+                        <!-- ✅ CORREÇÃO: URL com namespace -->
+                        <a href="{% url 'recommendations:category_products' category %}" 
                            class="btn btn-outline-secondary btn-sm">
                             {{ category }}
                         </a>
@@ -241,7 +245,8 @@
                                     </div>
                                     <div class="card-footer bg-transparent">
                                         <div class="d-grid gap-2">
-                                            <a href="{% url 'product_detail' product.id %}" 
+                                            <!-- ✅ CORREÇÃO: URL com namespace -->
+                                            <a href="{% url 'recommendations:product_detail' product.id %}" 
                                                class="btn btn-primary btn-sm">
                                                 <i class="fas fa-eye me-1"></i>Ver Detalhes
                                             </a>
@@ -298,7 +303,8 @@
                             <h5 class="text-muted mb-3">Nenhum produto encontrado</h5>
                             <p class="text-muted mb-4">Não há produtos disponíveis.</p>
                             <div class="d-flex justify-content-center gap-2 flex-wrap">
-                                <a href="{% url 'product_explorer' %}" class="btn btn-primary">
+                                <!-- ✅ CORREÇÃO: URL com namespace -->
+                                <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-primary">
                                     <i class="fas fa-shopping-bag me-2"></i>Explorar Todos os Produtos
                                 </a>
                                 <a href="/admin/recommendations/product/add/" class="btn btn-outline-secondary">
@@ -400,7 +406,8 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('interaction_type', interactionType);
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-        fetch('/api/record-interaction/', {
+        // ✅ CORREÇÃO: URL com namespace
+        fetch('{% url "recommendations:record_interaction_api" %}', {
             method: 'POST',
             body: formData,
             headers: {

@@ -128,70 +128,157 @@ def model_status(request):
 # ============================================================================
 # SISTEMA DE NAVEGAÇÃO
 # ============================================================================
-
+@login_required
 def product_explorer(request):
-    """Página para explorar todos os produtos"""
+    """Página para explorar todos os produtos - VERSÃO COM FILTROS EM PRODUTOS POPULARES"""
     try:
-        # Carrega TODOS os produtos do banco de dados
-        all_products = Product.objects.all().order_by('-id')
+        print("🎯 INICIANDO PRODUCT_EXPLORER - Buscando produtos...")
         
-        print(f"🎯 PRODUTOS ENCONTRADOS: {len(all_products)}")
+        # ✅ BUSCA TODOS OS PRODUTOS
+        all_products = Product.objects.all()
+        print(f"📦 PRODUTOS NO BANCO: {all_products.count()}")
         
-        # Produtos populares
-        popular_products = Product.objects.annotate(
-            interaction_count=Count('userinteraction')
-        ).order_by('-interaction_count')[:8]
+        # ✅ APLICA FILTRO DE BUSCA
+        search_query = request.GET.get('search', '')
+        if search_query:
+            print(f"🔍 APLICANDO FILTRO DE BUSCA: '{search_query}'")
+            all_products = all_products.filter(
+                models.Q(name__icontains=search_query) |
+                models.Q(description__icontains=search_query) |
+                models.Q(category__icontains=search_query)
+            )
+            print(f"📊 PRODUTOS APÓS BUSCA: {all_products.count()}")
         
-        # Categorias disponíveis
+        # ✅ APLICA ORDENAÇÃO
+        sort_by = request.GET.get('sort', 'newest')
+        print(f"🔄 APLICANDO ORDENAÇÃO: {sort_by}")
+        
+        if sort_by == 'price_low':
+            all_products = all_products.order_by('price')
+            print("💰 ORDENADO POR: Menor preço")
+        elif sort_by == 'price_high':
+            all_products = all_products.order_by('-price')
+            print("💰 ORDENADO POR: Maior preço")
+        elif sort_by == 'name':
+            all_products = all_products.order_by('name')
+            print("🔤 ORDENADO POR: Nome A-Z")
+        elif sort_by == 'popular':
+            # Ordena por número de visualizações usando annotation
+            all_products = all_products.annotate(
+                view_count=Count('userinteraction', filter=Q(userinteraction__interaction_type='view'))
+            ).order_by('-view_count', '-id')
+            print("🔥 ORDENADO POR: Mais populares")
+        else:  # newest (padrão)
+            all_products = all_products.order_by('-id')
+            print("📅 ORDENADO POR: Mais recentes")
+        
+        print(f"✅ PRODUTOS FINAIS: {all_products.count()}")
+        
+        # ✅ PRODUTOS POPULARES COM OS MESMOS FILTROS
+        try:
+            # Aplica os mesmos filtros aos produtos populares
+            popular_products_base = Product.objects.all()
+            
+            # Aplica busca nos produtos populares também
+            if search_query:
+                popular_products_base = popular_products_base.filter(
+                    models.Q(name__icontains=search_query) |
+                    models.Q(description__icontains=search_query) |
+                    models.Q(category__icontains=search_query)
+                )
+            
+            # Sempre ordena produtos populares por visualizações (independente da ordenação principal)
+            popular_products = popular_products_base.annotate(
+                view_count=Count('userinteraction', filter=Q(userinteraction__interaction_type='view'))
+            ).order_by('-view_count', '-id')[:8]
+            
+            print(f"🔥 PRODUTOS POPULARES (COM FILTROS): {popular_products.count()}")
+            
+        except Exception as e:
+            print(f"⚠️ ERRO EM PRODUTOS POPULARES: {e}")
+            popular_products = all_products[:8]  # Fallback
+        
+        # ✅ CATEGORIAS DISPONÍVEIS
         categories = Product.objects.values_list('category', flat=True).distinct()
+        print(f"📂 CATEGORIAS ENCONTRADAS: {len(categories)}")
         
-        # Tenta carregar recomendações do usuário (se existirem)
+        # ✅ TENTA CARREGAR RECOMENDAÇÕES DO USUÁRIO
         user_recommendations = None
         if request.user.is_authenticated:
             try:
                 user_recommendations = get_user_recommendations(request.user.id)
                 if user_recommendations and len(user_recommendations) > 0:
                     user_recommendations = user_recommendations[:6]
+                    print(f"🎯 RECOMENDAÇÕES DO USUÁRIO: {len(user_recommendations)}")
+                else:
+                    print("ℹ️ Nenhuma recomendação disponível para o usuário")
             except Exception as e:
-                print(f"Erro ao carregar recomendações: {e}")
+                print(f"❌ ERRO AO CARREGAR RECOMENDAÇÕES: {e}")
                 user_recommendations = None
         
+        # ✅ PAGINAÇÃO
+        paginator = Paginator(all_products, 12)  # 12 produtos por página
+        page_number = request.GET.get('page')
+        products_page = paginator.get_page(page_number)
+        
+        # ✅ ADICIONA ESTATÍSTICAS AOS PRODUTOS PARA O TEMPLATE
+        products_with_stats = []
+        for product in products_page:
+            # Calcular estatísticas em tempo real para cada produto
+            view_count = product.userinteraction_set.filter(interaction_type='view').count()
+            ratings = product.userinteraction_set.filter(
+                interaction_type='rating'
+            ).exclude(rating__isnull=True).values_list('rating', flat=True)
+            average_rating = sum(ratings) / len(ratings) if ratings else 0.0
+            
+            # Adicionar atributos dinâmicos ao produto
+            product.view_count = view_count
+            product.average_rating = round(average_rating, 1)
+            products_with_stats.append(product)
+        
+        # ✅ ADICIONA ESTATÍSTICAS AOS PRODUTOS POPULARES TAMBÉM
+        popular_with_stats = []
+        for product in popular_products:
+            view_count = product.userinteraction_set.filter(interaction_type='view').count()
+            ratings = product.userinteraction_set.filter(
+                interaction_type='rating'
+            ).exclude(rating__isnull=True).values_list('rating', flat=True)
+            average_rating = sum(ratings) / len(ratings) if ratings else 0.0
+            
+            product.view_count = view_count
+            product.average_rating = round(average_rating, 1)
+            popular_with_stats.append(product)
+        
         context = {
-            'products': all_products,
-            'popular_products': popular_products,
+            'products': products_page,
+            'page_obj': products_page,
+            'popular_products': popular_with_stats,  # ✅ Agora com estatísticas
             'categories': categories,
             'user_recommendations': user_recommendations,
             'total_products': all_products.count(),
+            'search_query': search_query,
+            'sort_by': sort_by,
         }
         
-        print(f"✅ Contexto enviado: {len(all_products)} produtos, {len(popular_products)} populares")
+        print(f"✅ CONTEXTO ENVIADO: {len(products_page)} produtos, {len(popular_with_stats)} populares")
         return render(request, 'recommendations/product_explorer.html', context)
         
     except Exception as e:
-        print(f"❌ Erro na página de explorar produtos: {e}")
+        print(f"❌ ERRO CRÍTICO NO PRODUCT_EXPLORER: {e}")
+        import traceback
+        traceback.print_exc()
         
-        # Fallback seguro sem usar annotate
-        all_products = Product.objects.all().order_by('-id')
+        # Fallback seguro
+        all_products = Product.objects.all().order_by('-id')[:12]
         
         return render(request, 'recommendations/product_explorer.html', {
             'products': all_products,
             'popular_products': all_products[:8],
             'categories': Product.objects.values_list('category', flat=True).distinct(),
             'user_recommendations': None,
-            'total_products': all_products.count(),
-            'error': 'Erro ao carregar produtos populares'
+            'total_products': Product.objects.count(),
+            'error': f'Erro ao carregar produtos: {str(e)}'
         })
-
-def get_user_recommendations(user_id, limit=6):
-    """Função auxiliar para obter recomendações do usuário"""
-    try:
-        # Implemente sua lógica de recomendação aqui
-        # Por enquanto, retorna produtos populares como fallback
-        return Product.objects.annotate(
-            interaction_count=Count('userinteraction')
-        ).order_by('-interaction_count')[:limit]
-    except Exception:
-        return Product.objects.all()[:limit]
 @login_required
 def product_detail(request, product_id):
     """Página de detalhes do produto - VERSÃO CORRIGIDA"""
