@@ -1,17 +1,24 @@
+import json
 from django.http import JsonResponse
-from django.shortcuts import render, get_object_or_404,  redirect 
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Count, Q
+from django.core.paginator import Paginator
+from django.conf import settings
+from django.db import models
+
 from .models import Product, UserInteraction, Recommendation
 from .ml_models.recommender import recommender
-from django.db import models
-from django.core.paginator import Paginator  # Adicione esta importação
-from django.shortcuts import render, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from .models import Product, UserInteraction
+from .ai_generator import AIGenerator
 
+# ✅ Crie a instância aqui mesmo
+ai_generator = AIGenerator()
+
+# ============================================================================
+# VIEWS PRINCIPAIS
+# ============================================================================
 
 def home(request):
     """Página inicial"""
@@ -41,7 +48,7 @@ def train_recommender(request):
                 'training_success': success,
             }
             
-            messages.success(request, f'✅ Modelo treinado com sucesso!')
+            messages.success(request, '✅ Modelo treinado com sucesso!')
             
             # Renderiza a página com os resultados
             return render(request, 'recommendations/training_results.html', {
@@ -119,8 +126,9 @@ def model_status(request):
     })
 
 # ============================================================================
-# NOVAS VIEWS PARA SISTEMA DE NAVEGAÇÃO - ADAPTADAS PARA SEU MODELO
+# SISTEMA DE NAVEGAÇÃO
 # ============================================================================
+
 def product_explorer(request):
     """Página para explorar todos os produtos"""
     try:
@@ -129,9 +137,9 @@ def product_explorer(request):
         
         print(f"🎯 PRODUTOS ENCONTRADOS: {len(all_products)}")
         
-        # Produtos populares (baseado em userinteraction - nome correto do campo)
+        # Produtos populares
         popular_products = Product.objects.annotate(
-            interaction_count=Count('userinteraction')  # CORRIGIDO: 'userinteraction'
+            interaction_count=Count('userinteraction')
         ).order_by('-interaction_count')[:8]
         
         # Categorias disponíveis
@@ -167,137 +175,134 @@ def product_explorer(request):
         
         return render(request, 'recommendations/product_explorer.html', {
             'products': all_products,
-            'popular_products': all_products[:8],  # Fallback: primeiros 8 produtos
+            'popular_products': all_products[:8],
             'categories': Product.objects.values_list('category', flat=True).distinct(),
             'user_recommendations': None,
             'total_products': all_products.count(),
             'error': 'Erro ao carregar produtos populares'
         })
+
+def get_user_recommendations(user_id, limit=6):
+    """Função auxiliar para obter recomendações do usuário"""
+    try:
+        # Implemente sua lógica de recomendação aqui
+        # Por enquanto, retorna produtos populares como fallback
+        return Product.objects.annotate(
+            interaction_count=Count('userinteraction')
+        ).order_by('-interaction_count')[:limit]
+    except Exception:
+        return Product.objects.all()[:limit]
 @login_required
 def product_detail(request, product_id):
     """Página de detalhes do produto - VERSÃO CORRIGIDA"""
     try:
-        product = get_object_or_404(Product, id=product_id)
+        print(f"🔍 ACESSANDO PRODUCT_DETAIL - ID: {product_id}, Usuário: {request.user}")
         
-        print(f"🔍 DETALHES DO PRODUTO: {product.name} | Usuário: {request.user}")
+        # ✅ VALIDAÇÃO do product_id
+        if not product_id:
+            print("❌ ID DO PRODUTO VAZIO")
+            messages.error(request, "ID do produto não fornecido.")
+            return redirect('/')
         
-        # Registrar visualização
-        if request.user.is_authenticated:
-            try:
-                interaction, created = UserInteraction.objects.update_or_create(
-                    user=request.user,
-                    product=product,
-                    interaction_type='view',
-                    defaults={'timestamp': timezone.now()}
-                )
-                if created:
-                    print(f"✅ NOVA VISUALIZAÇÃO REGISTRADA: {product.name}")
-            except Exception as e:
-                print(f"❌ ERRO AO REGISTRAR VISUALIZAÇÃO: {e}")
+        try:
+            product_id = int(product_id)
+        except (ValueError, TypeError):
+            print(f"❌ ID DO PRODUTO INVÁLIDO: {product_id}")
+            messages.error(request, "ID do produto inválido.")
+            return redirect('/')
         
-        # Produtos da mesma categoria
+        if product_id <= 0:
+            print(f"❌ ID DO PRODUTO INVÁLIDO: {product_id}")
+            messages.error(request, "ID do produto inválido.")
+            return redirect('/')
+        
+        # ✅ Buscar produto principal
+        try:
+            product = Product.objects.get(id=product_id)
+            print(f"✅ PRODUTO ENCONTRADO: {product.name} (ID: {product.id})")
+        except Product.DoesNotExist:
+            print(f"❌ PRODUTO NÃO ENCONTRADO: {product_id}")
+            messages.error(request, "Produto não encontrado.")
+            return redirect('/')
+        
+        # ✅ PRODUTOS RELACIONADOS - COM VALIDAÇÃO ROBUSTA
         same_category_products = []
-        if product.category and product.category.strip():  # Verifica se não está vazio
-            same_category_products = Product.objects.filter(
-                category=product.category
-            ).exclude(id=product.id).order_by('?')[:4]
+        if product.category and product.category.strip():
+            try:
+                # Busca produtos da mesma categoria
+                category_products = Product.objects.filter(
+                    category=product.category
+                ).exclude(id=product.id).order_by('?')[:8]  # Pega mais para filtrar depois
+                
+                # ✅ FILTRA APENAS PRODUTOS VÁLIDOS
+                valid_related_products = []
+                for related_product in category_products:
+                    if (related_product and 
+                        related_product.id and 
+                        related_product.id > 0 and 
+                        related_product != product):
+                        valid_related_products.append(related_product)
+                
+                # Limita a 4 produtos válidos
+                same_category_products = valid_related_products[:4]
+                print(f"✅ PRODUTOS RELACIONADOS: {len(same_category_products)} válidos encontrados")
+                
+            except Exception as e:
+                print(f"⚠️ ERRO AO BUSCAR PRODUTOS RELACIONADOS: {e}")
+                same_category_products = []  # Lista vazia em caso de erro
         
-        # Características
+        # ✅ Características
         features_list = []
         if product.features and isinstance(product.features, str):
-            features_list = [feature.strip() for feature in product.features.split(',')]
+            features_list = [feature.strip() for feature in product.features.split(',') if feature.strip()]
         
-        # Estatísticas - CÁLCULO CORRETO
+        # ✅ Estatísticas
         view_count = product.userinteraction_set.filter(interaction_type='view').count()
         wishlist_count = product.userinteraction_set.filter(interaction_type='wishlist').count()
         
-        # Calcular avaliação média CORRETAMENTE
         ratings = product.userinteraction_set.filter(
             interaction_type='rating'
         ).exclude(rating__isnull=True).values_list('rating', flat=True)
         
         average_rating = sum(ratings) / len(ratings) if ratings else 0.0
         
-        # ⭐⭐ VERIFICAR AVALIAÇÃO DO USUÁRIO ATUAL - CORRIGIDA ⭐⭐
+        # ✅ Avaliação do usuário atual
         user_rating = None
         if request.user.is_authenticated:
             try:
-                # Primeiro tenta pegar uma única avaliação
-                user_interaction = UserInteraction.objects.get(
-                    user=request.user,
-                    product=product,
-                    interaction_type='rating'
-                )
-                user_rating = user_interaction.rating
-                print(f"⭐ AVALIAÇÃO DO USUÁRIO ENCONTRADA: {user_rating} estrelas")
-                
-            except UserInteraction.DoesNotExist:
-                user_rating = None
-                print(f"⭐ USUÁRIO AINDA NÃO AVALIOU ESTE PRODUTO")
-                
-            except UserInteraction.MultipleObjectsReturned:
-                # Se houver múltiplas avaliações, pega a mais recente
-                print(f"⚠️ MÚLTIPLAS AVALIAÇÕES ENCONTRADAS, USANDO A MAIS RECENTE")
                 user_interaction = UserInteraction.objects.filter(
                     user=request.user,
                     product=product,
                     interaction_type='rating'
                 ).order_by('-timestamp').first()
                 user_rating = user_interaction.rating if user_interaction else None
-                print(f"⭐ AVALIAÇÃO MAIS RECENTE: {user_rating} estrelas")
-        
-        print(f"📊 ESTATÍSTICAS DO PRODUTO {product.name}:")
-        print(f"   - Visualizações: {view_count}")
-        print(f"   - Wishlist: {wishlist_count}")
-        print(f"   - Avaliações: {len(ratings)} ratings")
-        print(f"   - Média: {average_rating:.1f}")
-        print(f"   - Avaliação do usuário: {user_rating}")
-        print(f"   - Categoria: '{product.category}'")
-        if ratings:
-            print(f"   - Ratings individuais: {list(ratings)}")
+            except Exception as e:
+                print(f"⚠️ ERRO AO BUSCAR AVALIAÇÃO: {e}")
+                user_rating = None
         
         context = {
             'product': product,
-            'same_category_products': same_category_products,
+            'same_category_products': same_category_products,  # ✅ AGORA SÓ PRODUTOS VÁLIDOS
             'features_list': features_list,
             'view_count': view_count,
             'wishlist_count': wishlist_count,
-            'average_rating': average_rating,
+            'average_rating': round(average_rating, 1),
             'user_rating': user_rating,
         }
         
         return render(request, 'recommendations/product_detail.html', context)
         
     except Exception as e:
-        print(f"❌ ERRO NA PÁGINA DE DETALHES DO PRODUTO: {e}")
+        print(f"❌ ERRO CRÍTICO: {e}")
         import traceback
         traceback.print_exc()
-        
-        return render(request, 'recommendations/product_detail.html', {
-            'error': 'Erro ao carregar detalhes do produto'
-        })
+        messages.error(request, "Erro ao carregar detalhes do produto.")
+        return redirect('/')
 @login_required
 def category_products(request, category_name):
     """Página para filtrar produtos por categoria"""
     try:
         print(f"🔍 Buscando produtos da categoria: '{category_name}'")
-        
-        # DEBUG: Verificar todos os produtos e categorias
-        all_products = Product.objects.all()
-        print(f"📦 Total de produtos no banco: {all_products.count()}")
-        
-        all_categories = Product.objects.values_list('category', flat=True).distinct()
-        print(f"📂 Categorias disponíveis no banco: {list(all_categories)}")
-        
-        # Mostrar produtos da categoria específica
-        print(f"🎯 Produtos com categoria '{category_name}':")
-        category_products_found = []
-        for product in all_products:
-            if product.category and category_name.lower() in product.category.lower():
-                print(f"   ✅ {product.id}: {product.name} -> '{product.category}'")
-                category_products_found.append(product)
-        
-        print(f"🎯 Total de produtos encontrados manualmente: {len(category_products_found)}")
         
         # Filtra produtos pela categoria (busca case-insensitive e parcial)
         category_products = Product.objects.filter(
@@ -360,7 +365,7 @@ def category_products(request, category_name):
         context = {
             'products': products_page,
             'category_name': category_name,
-            'categories': all_categories,
+            'categories': Product.objects.values_list('category', flat=True).distinct(),
             'total_products': total_products,
             'total_views': total_views,
             'average_price': average_price,
@@ -399,29 +404,51 @@ def category_products(request, category_name):
             'average_price': 0,
             'error': f'Erro ao carregar produtos: {str(e)}'
         })
+
+# ============================================================================
+# APIs DE INTERAÇÃO
+# ============================================================================
+
 @login_required
-def record_interaction(request):
-    """API para registrar interações do usuário (AJAX)"""
+def record_interaction_api(request):
+    """API para registrar interações do usuário (AJAX) - VERSÃO COM MAIS LOGS"""
     if request.method == 'POST' and request.user.is_authenticated:
         try:
             product_id = request.POST.get('product_id')
-            interaction_type = request.POST.get('interaction_type', 'click')
+            interaction_type = request.POST.get('interaction_type', 'view')
             rating = request.POST.get('rating')
+            
+            print(f"🔍 REGISTRANDO INTERAÇÃO - Produto: {product_id}, Tipo: {interaction_type}, Rating: {rating}")
             
             product = get_object_or_404(Product, id=product_id)
             
-            # Cria a interação
+            # Dados para a interação
             interaction_data = {
                 'user': request.user,
                 'product': product,
                 'interaction_type': interaction_type,
+                'timestamp': timezone.now()
             }
             
             # Adiciona rating se fornecido
             if rating and interaction_type == 'rating':
                 interaction_data['rating'] = int(rating)
+                print(f"⭐ REGISTRANDO AVALIAÇÃO: {rating} estrelas para {product.name}")
             
-            interaction = UserInteraction.objects.create(**interaction_data)
+            # Para avaliações, usar update_or_create
+            if interaction_type == 'rating':
+                interaction, created = UserInteraction.objects.update_or_create(
+                    user=request.user,
+                    product=product,
+                    interaction_type='rating',
+                    defaults=interaction_data
+                )
+                action = "criada" if created else "atualizada"
+                print(f"✅ AVALIAÇÃO {action}: {rating} estrelas para {product.name}")
+                
+            else:
+                interaction = UserInteraction.objects.create(**interaction_data)
+                print(f"✅ INTERAÇÃO criada: {interaction_type} para {product.name}")
             
             return JsonResponse({
                 'status': 'success',
@@ -430,6 +457,7 @@ def record_interaction(request):
             })
             
         except Exception as e:
+            print(f"❌ ERRO AO REGISTRAR INTERAÇÃO: {e}")
             return JsonResponse({
                 'status': 'error',
                 'message': str(e)
@@ -471,8 +499,39 @@ def get_recommendations_ajax(request):
         })
 
 @login_required
-@login_required
-@login_required
+def product_stats_api(request, product_id):
+    """API para obter estatísticas atualizadas do produto"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        
+        # Calcular estatísticas em tempo real
+        view_count = product.userinteraction_set.filter(interaction_type='view').count()
+        wishlist_count = product.userinteraction_set.filter(interaction_type='wishlist').count()
+        
+        ratings = product.userinteraction_set.filter(
+            interaction_type='rating'
+        ).exclude(rating__isnull=True).values_list('rating', flat=True)
+        
+        average_rating = sum(ratings) / len(ratings) if ratings else 0.0
+        
+        return JsonResponse({
+            'status': 'success',
+            'view_count': view_count,
+            'wishlist_count': wishlist_count,
+            'average_rating': round(average_rating, 1),
+            'rating_count': len(ratings)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        })
+
+# ============================================================================
+# DASHBOARD E AVALIAÇÕES
+# ============================================================================
+
 @login_required
 def user_dashboard(request):
     """Dashboard do usuário com estatísticas e atividades - VERSÃO FINAL CORRIGIDA"""
@@ -496,8 +555,7 @@ def user_dashboard(request):
         recent_interactions = user_interactions.select_related('product').order_by('-timestamp')[:10]
         print(f"🔍 INTERAÇÕES RECENTES: {recent_interactions.count()}")
         
-        # Produtos mais visualizados - USANDO COUNT IMPORTADO CORRETAMENTE
-        from django.db.models import Count
+        # Produtos mais visualizados
         most_viewed_products = Product.objects.filter(
             userinteraction__user=user,
             userinteraction__interaction_type='view'
@@ -522,7 +580,7 @@ def user_dashboard(request):
             # Formatar para o template
             formatted_stats = []
             for stat in category_stats:
-                if stat['product__category']:  # Só adicionar se categoria não for vazia
+                if stat['product__category']:
                     formatted_stats.append({
                         'category': stat['product__category'],
                         'view_count': stat['view_count'] or 0,
@@ -555,7 +613,7 @@ def user_dashboard(request):
             'total_interactions': total_interactions,
             'recent_interactions': recent_interactions,
             'most_viewed_products': most_viewed_products,
-            'category_stats': category_stats[:5],  # Top 5 categorias
+            'category_stats': category_stats[:5],
             'user_recommendations': user_recommendations,
             'model_trained': model_trained,
         }
@@ -580,7 +638,7 @@ def user_dashboard(request):
             'model_trained': False,
             'error': f'Erro ao carregar dashboard: {str(e)}'
         })
-@login_required
+
 @login_required
 def rate_product(request, product_id):
     """View para avaliar um produto - VERSÃO CORRIGIDA"""
@@ -596,10 +654,10 @@ def rate_product(request, product_id):
                 interaction, created = UserInteraction.objects.update_or_create(
                     user=request.user,
                     product=product,
-                    interaction_type='rating',  # Tipo específico para avaliação
+                    interaction_type='rating',
                     defaults={
                         'rating': int(rating),
-                        'timestamp': timezone.now()  # Atualiza o timestamp
+                        'timestamp': timezone.now()
                     }
                 )
                 
@@ -625,7 +683,7 @@ def debug_interactions(request):
     print(f"🔍 DEBUG - Total de interações: {user_interactions.count()}")
     
     for interaction in user_interactions:
-        print(f"  - Produto: {interaction.product.name} | Tipo: {interaction.interaction_type} | Rating: {interaction.rating} | Data: {interaction.created_at}")
+        print(f"  - Produto: {interaction.product.name} | Tipo: {interaction.interaction_type} | Rating: {interaction.rating} | Data: {interaction.timestamp}")
     
     context = {
         'interactions': user_interactions,
@@ -648,102 +706,450 @@ def test_interaction(request, product_id):
     messages.success(request, f'✅ Interação de teste criada para {product.name}! ID: {interaction.id}')
     return redirect('debug_interactions')
 
+# ============================================================================
+# IA GENERATIVA - VIEWS CORRIGIDAS
+# ============================================================================
 
 @login_required
+def ai_status(request):
+    """Página para verificar o status da IA"""
+    context = {
+        'api_configured': ai_generator._is_configured(),
+        'api_key': settings.DEEPSEEK_API_KEY,
+        'api_key_preview': f"{settings.DEEPSEEK_API_KEY[:10]}..." if settings.DEEPSEEK_API_KEY else "Não configurada",
+        'model': ai_generator.model,
+        'provider': getattr(settings, 'AI_PROVIDER', 'deepseek')
+    }
+    
+    return render(request, 'recommendations/ai_status.html', context)
+
 @login_required
-def record_interaction_api(request):
-    """API para registrar interações do usuário (AJAX) - VERSÃO COM MAIS LOGS"""
-    if request.method == 'POST' and request.user.is_authenticated:
+def generate_description_page(request):
+    """Página para gerar descrições com IA - VERSÃO COMPLETA"""
+    # Obter produtos para seleção
+    products = Product.objects.all().order_by('name')[:50]
+    categories = Product.objects.values_list('category', flat=True).distinct()
+    
+    # Estatísticas da IA
+    ai_configured = ai_generator._is_configured()
+    api_status = "✅ Configurada" if ai_configured else "❌ Não configurada"
+    
+    context = {
+        'title': 'Gerar Descrição com IA',
+        'products': products,
+        'categories': categories,
+        'ai_configured': ai_configured,
+        'api_status': api_status,
+        'model': ai_generator.model,
+        'provider': getattr(settings, 'AI_PROVIDER', 'deepseek')
+    }
+    return render(request, 'recommendations/generate_description.html', context)
+
+@login_required
+def test_ai(request):
+    """Página para testar a IA generativa - VERSÃO COMPLETA"""
+    # Dados de exemplo para teste
+    sample_products = [
+        {
+            'name': 'Smartphone Android 5G',
+            'category': 'Eletrônicos',
+            'price': '1299.99',
+            'features': 'Tela 6.5", 128GB, Câmera Tripla, Bateria 5000mAh'
+        },
+        {
+            'name': 'Livro de Ficção Científica',
+            'category': 'Livros', 
+            'price': '49.90',
+            'features': 'Capa dura, 320 páginas, Edição limitada'
+        },
+        {
+            'name': 'Fone de Ouvido Bluetooth',
+            'category': 'Áudio',
+            'price': '199.90',
+            'features': 'Cancelamento de ruído, Bateria 30h, À prova dágua'
+        }
+    ]
+    
+    # Status da configuração
+    ai_configured = ai_generator._is_configured()
+    
+    context = {
+        'title': 'Testar IA Generativa',
+        'sample_products': sample_products,
+        'ai_configured': ai_configured,
+        'api_key_preview': f"{settings.DEEPSEEK_API_KEY[:8]}..." if settings.DEEPSEEK_API_KEY else "Não configurada",
+        'model': ai_generator.model,
+        'max_tokens': ai_generator.max_tokens,
+        'temperature': ai_generator.temperature
+    }
+    return render(request, 'recommendations/test_ai.html', context)
+
+@login_required
+def generate_description_api(request):
+    """API para gerar descrição de produto com IA - VERSÃO FINAL"""
+    print("🎯 API generate_description_api CHAMADA")
+    
+    if request.method == 'POST':
         try:
-            product_id = request.POST.get('product_id')
-            interaction_type = request.POST.get('interaction_type', 'view')
-            rating = request.POST.get('rating')
+            print("📨 Recebendo dados POST...")
             
-            print(f"🔍 REGISTRANDO INTERAÇÃO - Produto: {product_id}, Tipo: {interaction_type}, Rating: {rating}")
+            # Verificar se há corpo na requisição
+            if not request.body:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Nenhum dado recebido'
+                })
             
-            product = get_object_or_404(Product, id=product_id)
+            # Carregar dados JSON
+            data = json.loads(request.body)
+            product_name = data.get('product_name', '').strip()
+            category = data.get('category', '').strip()
+            price = data.get('price', '0')
+            features = data.get('features', '').strip()
             
-            # Dados para a interação
-            interaction_data = {
-                'user': request.user,
-                'product': product,
-                'interaction_type': interaction_type,
-                'timestamp': timezone.now()
-            }
+            print(f"📦 Dados recebidos: {product_name}, {category}, {price}")
             
-            # Adiciona rating se fornecido
-            if rating and interaction_type == 'rating':
-                interaction_data['rating'] = int(rating)
-                print(f"⭐ REGISTRANDO AVALIAÇÃO: {rating} estrelas para {product.name}")
+            if not product_name:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Nome do produto é obrigatório'
+                })
             
-            # Para avaliações, usar update_or_create
-            if interaction_type == 'rating':
-                interaction, created = UserInteraction.objects.update_or_create(
-                    user=request.user,
-                    product=product,
-                    interaction_type='rating',
-                    defaults=interaction_data
-                )
-                action = "criada" if created else "atualizada"
-                print(f"✅ AVALIAÇÃO {action}: {rating} estrelas para {product.name}")
-                
-                # DEBUG: Verificar todas as avaliações deste produto
-                all_ratings = UserInteraction.objects.filter(
-                    product=product, 
-                    interaction_type='rating'
-                ).exclude(rating__isnull=True)
-                print(f"📊 TOTAL DE AVALIAÇÕES PARA ESTE PRODUTO: {all_ratings.count()}")
-                for r in all_ratings:
-                    print(f"   - Usuário: {r.user.username}, Rating: {r.rating}")
-                
-            else:
-                interaction = UserInteraction.objects.create(**interaction_data)
-                print(f"✅ INTERAÇÃO criada: {interaction_type} para {product.name}")
+            # Verificar se a IA está configurada
+            if not ai_generator._is_configured():
+                print("❌ IA não configurada")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'IA não configurada. Configure DEEPSEEK_API_KEY no arquivo .env'
+                })
+            
+            print("🤖 Gerando descrição com IA...")
+            
+            # Gerar descrição com IA
+            description = ai_generator.generate_product_description(
+                product_name=product_name,
+                category=category,
+                price=price,
+                features=features
+            )
+            
+            print("✅ Descrição gerada com sucesso!")
             
             return JsonResponse({
                 'status': 'success',
-                'message': f'Interação {interaction_type} registrada para {product.name}',
-                'interaction_id': interaction.id
+                'description': description,
+                'product_name': product_name
+            })
+            
+        except json.JSONDecodeError as e:
+            print(f"❌ Erro JSON: {e}")
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'Dados JSON inválidos'
+            })
+        except Exception as e:
+            print(f"❌ Erro ao gerar descrição: {e}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Erro interno: {str(e)}'
+            })
+    
+    print("❌ Método não permitido")
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido'})
+
+@login_required
+def test_ai_connection(request):
+    """Testar conexão com a API de IA - VERSÃO CORRIGIDA"""
+    if request.method == 'POST':
+        try:
+            # Teste simples
+            test_response = ai_generator._call_deepseek_api("Responda apenas 'OK' se estiver funcionando.")
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Conexão com IA estabelecida com sucesso!',
+                'test_response': test_response,
+                'api_configured': ai_generator._is_configured()
             })
             
         except Exception as e:
-            print(f"❌ ERRO AO REGISTRAR INTERAÇÃO: {e}")
+            print(f"❌ Erro no teste de conexão: {e}")
             return JsonResponse({
                 'status': 'error',
-                'message': str(e)
+                'message': f'Falha na conexão: {str(e)}',
+                'api_configured': ai_generator._is_configured()
+            })
+    
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido'})
+
+@login_required
+def generate_product_features(request):
+    """View para gerar características de produto com IA - VERSÃO CORRIGIDA"""
+    if request.method == 'POST':
+        try:
+            # Verificar se há corpo na requisição
+            if not request.body:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Nenhum dado recebido'
+                })
+            
+            data = json.loads(request.body)
+            product_name = data.get('product_name', '').strip()
+            category = data.get('category', '').strip()
+            
+            print(f"🎯 GERANDO FEATURES IA - Produto: {product_name}")
+            
+            if not product_name:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Nome do produto é obrigatório'
+                })
+            
+            # Verificar se a IA está configurada
+            if not ai_generator._is_configured():
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'IA não configurada'
+                })
+            
+            features = ai_generator.generate_product_features(
+                product_name=product_name,
+                category=category
+            )
+            
+            return JsonResponse({
+                'status': 'success',
+                'features': features
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'Dados JSON inválidos'
+            })
+        except Exception as e:
+            print(f"❌ Erro ao gerar features: {e}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Erro ao gerar características: {str(e)}'
             })
     
     return JsonResponse({'status': 'error', 'message': 'Método não permitido'})
 
 
+@login_required
+def ai_product_wizard(request):
+    """Assistente completo para criação de produtos com IA - VERSÃO CORRIGIDA"""
+    if request.method == 'POST':
+        try:
+            # Verificar se há corpo na requisição
+            if not request.body:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Nenhum dado recebido'
+                })
+            
+            data = json.loads(request.body)
+            product_name = data.get('product_name', '').strip()
+            category = data.get('category', '').strip()
+            price = data.get('price', '0')
+            base_features = data.get('base_features', '').strip()
+            
+            print(f"🎯 INICIANDO WIZARD IA - Produto: {product_name}")
+            
+            if not product_name:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Nome do produto é obrigatório'
+                })
+            
+            # Verificar se a IA está configurada
+            if not ai_generator._is_configured():
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'IA não configurada'
+                })
+            
+            description = ai_generator.generate_product_description(
+                product_name=product_name,
+                category=category,
+                price=price,
+                features=base_features
+            )
+            
+            enhanced_features = ai_generator.generate_product_features(
+                product_name=product_name,
+                category=category
+            )
+            
+            # Combinar features
+            all_features = base_features
+            if base_features and enhanced_features:
+                all_features = f"{base_features}, {enhanced_features}"
+            elif enhanced_features:
+                all_features = enhanced_features
+            
+            return JsonResponse({
+                'status': 'success',
+                'description': description,
+                'features': all_features,
+                'enhanced_features': enhanced_features
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'Dados JSON inválidos'
+            })
+        except Exception as e:
+            print(f"❌ Erro no wizard IA: {e}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Erro no assistente: {str(e)}'
+            })
+    
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido'})
 
 @login_required
-def product_stats_api(request, product_id):
-    """API para obter estatísticas atualizadas do produto"""
+def get_product_data(request, product_id):
+    """API para obter dados de um produto específico - VERSÃO CORRIGIDA"""
     try:
         product = get_object_or_404(Product, id=product_id)
         
-        # Calcular estatísticas em tempo real
-        view_count = product.userinteraction_set.filter(interaction_type='view').count()
-        wishlist_count = product.userinteraction_set.filter(interaction_type='wishlist').count()
-        
-        ratings = product.userinteraction_set.filter(
-            interaction_type='rating'
-        ).exclude(rating__isnull=True).values_list('rating', flat=True)
-        
-        average_rating = sum(ratings) / len(ratings) if ratings else 0.0
-        
         return JsonResponse({
             'status': 'success',
-            'view_count': view_count,
-            'wishlist_count': wishlist_count,
-            'average_rating': round(average_rating, 1),
-            'rating_count': len(ratings)
+            'product': {
+                'id': product.id,
+                'name': product.name,
+                'category': product.category,
+                'price': str(product.price),
+                'features': product.features or '',
+                'current_description': product.description or '',
+                'image_url': product.image_url or ''
+            }
         })
         
     except Exception as e:
+        print(f"❌ Erro ao carregar produto: {e}")
         return JsonResponse({
             'status': 'error',
-            'message': str(e)
+            'message': f'Erro ao carregar produto: {str(e)}'
         })
 
+@login_required
+def bulk_generate_descriptions(request):
+    """Gerar descrições em lote para produtos sem descrição - VERSÃO CORRIGIDA"""
+    if request.method == 'POST':
+        try:
+            products_to_update = Product.objects.filter(
+                Q(description__isnull=True) | 
+                Q(description='')
+            )[:2]  # Apenas 2 para teste
+            
+            results = []
+            
+            for product in products_to_update:
+                try:
+                    description = ai_generator.generate_product_description(
+                        product_name=product.name,
+                        category=product.category,
+                        price=str(product.price),
+                        features=product.features
+                    )
+                    
+                    product.description = description
+                    product.save()
+                    
+                    results.append({
+                        'product': product.name,
+                        'status': 'success',
+                        'description_preview': description[:100] + '...'
+                    })
+                    
+                except Exception as e:
+                    results.append({
+                        'product': product.name,
+                        'status': 'error',
+                        'error': str(e)
+                    })
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Processados {len(results)} produtos',
+                'results': results
+            })
+            
+        except Exception as e:
+            print(f"❌ Erro no processamento em lote: {e}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Erro no processamento em lote: {str(e)}'
+            })
+    
+    # GET - mostrar página
+    products_needing_description = Product.objects.filter(
+        Q(description__isnull=True) | 
+        Q(description='')
+    ).count()
+    
+    return render(request, 'recommendations/bulk_generate_descriptions.html', {
+        'products_count': products_needing_description,
+        'ai_configured': ai_generator._is_configured()
+    })
+
+@login_required
+def update_product_description(request, product_id):
+    """API para atualizar a descrição de um produto - VERSÃO CORRIGIDA"""
+    print(f"🎯 API update_product_description CHAMADA para produto {product_id}")
+    
+    if request.method == 'POST':
+        try:
+            # Verificar se há corpo na requisição
+            if not request.body:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Nenhum dado recebido'
+                })
+            
+            data = json.loads(request.body)
+            new_description = data.get('description', '').strip()
+            
+            print(f"📝 Nova descrição: {new_description[:100]}...")
+            
+            product = get_object_or_404(Product, id=product_id)
+            
+            # Atualizar a descrição
+            product.description = new_description
+            product.save()
+            
+            # Registrar interação de geração de descrição
+            UserInteraction.objects.create(
+                user=request.user,
+                product=product,
+                interaction_type='ai_description_generated',
+                timestamp=timezone.now()
+            )
+            
+            print("✅ Descrição atualizada com sucesso!")
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Descrição atualizada com sucesso!',
+                'product_id': product_id
+            })
+            
+        except json.JSONDecodeError as e:
+            print(f"❌ Erro JSON: {e}")
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'Dados JSON inválidos'
+            })
+        except Exception as e:
+            print(f"❌ Erro ao atualizar descrição: {e}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Erro ao atualizar descrição: {str(e)}'
+            })
+    
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido'})

@@ -11,10 +11,10 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h1>📊 Meu Dashboard</h1>
                 <div>
-                    <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary me-2">
+                    <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-outline-primary me-2">
                         🛍️ Explorar Produtos
                     </a>
-                    <a href="{% url 'train_recommender' %}" class="btn btn-outline-warning">
+                    <a href="{% url 'recommendations:train_recommender' %}" class="btn btn-outline-warning">
                         🎯 Treinar Modelo
                     </a>
                 </div>
@@ -118,7 +118,7 @@
                                 {% for interaction in recent_interactions %}
                                 <tr>
                                     <td>
-                                        <a href="{% url 'product_detail' interaction.product.id %}" class="text-decoration-none">
+                                        <a href="{% url 'recommendations:product_detail' interaction.product.id %}" class="text-decoration-none">
                                             {{ interaction.product.name }}
                                         </a>
                                     </td>
@@ -155,7 +155,7 @@
                     <div class="text-center py-4">
                         <i class="fas fa-history fa-3x text-muted mb-3"></i>
                         <p class="text-muted">Nenhuma atividade registrada ainda.</p>
-                        <a href="{% url 'product_explorer' %}" class="btn btn-primary">
+                        <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-primary">
                             🛍️ Explorar Produtos
                         </a>
                     </div>
@@ -289,13 +289,13 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{% url 'train_recommender' %}" class="btn btn-warning">
+                        <a href="{% url 'recommendations:train_recommender' %}" class="btn btn-warning">
                             🎯 Treinar Modelo de Recomendação
                         </a>
-                        <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary">
+                        <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-outline-primary">
                             🛍️ Explorar Mais Produtos
                         </a>
-                        <a href="{% url 'user_recommendations' %}" class="btn btn-outline-success">
+                        <a href="{% url 'recommendations:user_recommendations' %}" class="btn btn-outline-success">
                             📋 Ver Minhas Recomendações
                         </a>
                     </div>

@@ -9,13 +9,13 @@
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
             <li class="breadcrumb-item">
-                <a href="{% url 'product_explorer' %}" class="text-decoration-none">
+                <a href="{% url 'recommendations:product_explorer' %}" class="text-decoration-none">
                     🛍️ Explorar Produtos
                 </a>
             </li>
             {% if product.category %}
             <li class="breadcrumb-item">
-                <a href="{% url 'category_products' product.category %}" class="text-decoration-none">
+                <a href="{% url 'recommendations:category_products' product.category %}" class="text-decoration-none">
                     {{ product.category }}
                 </a>
             </li>
@@ -78,12 +78,28 @@
                         {% endif %}
                     </div>
 
-                    <!-- Descrição -->
-                    <div class="mb-4">
-                        <h5 class="text-muted">📋 Descrição</h5>
-                        <p class="lead">{{ product.description }}</p>
-                    </div>
-
+                   <!-- Descrição -->
+<div class="mb-4">
+    <h5 class="text-muted">📋 Descrição</h5>
+    <p class="lead">{{ product.description }}</p>
+    
+    <!-- Botão para Gerar Descrição com IA -->
+    {% if user.is_authenticated %}
+    <div class="mt-3">
+        <button class="btn btn-outline-primary btn-sm" id="generateDescriptionBtn"
+                data-product-id="{{ product.id }}"
+                data-product-name="{{ product.name }}"
+                data-product-category="{{ product.category }}"
+                data-product-price="{{ product.price }}"
+                data-product-features="{{ product.features }}">
+            <i class="bi bi-robot"></i> Mais detalhes do produto com  IA
+        </button>
+        <small class="text-muted d-block mt-1">
+            Use IA para criar uma descrição mais atraente para este produto
+        </small>
+    </div>
+    {% endif %}
+</div>
                     <!-- Características -->
                     {% if features_list %}
                     <div class="mb-4">
@@ -183,52 +199,54 @@
         </div>
     </div>
 
-    <!-- Produtos da Mesma Categoria -->
-    {% if same_category_products %}
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <h4 class="mb-0">📂 Outros Produtos em {{ product.category }}</h4>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        {% for related_product in same_category_products %}
-                        {% if related_product.id != product.id %}
-                        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
-                            <div class="card h-100 product-card" data-product-id="{{ related_product.id }}">
-                                {% if related_product.image_url %}
-                                <img src="{{ related_product.image_url }}" 
-                                     class="card-img-top" 
-                                     alt="{{ related_product.name }}"
-                                     style="height: 150px; object-fit: cover;">
-                                {% else %}
-                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" 
-                                     style="height: 150px;">
-                                    <span class="text-muted">🖼️ Sem imagem</span>
-                                </div>
-                                {% endif %}
-                                <div class="card-body">
-                                    <h6 class="card-title">{{ related_product.name }}</h6>
-                                    <p class="card-text small text-muted">{{ related_product.category }}</p>
-                                    <p class="card-text fw-bold text-success">R$ {{ related_product.price }}</p>
-                                </div>
-                                <div class="card-footer bg-transparent">
-                                    <a href="{% url 'product_detail' related_product.id %}" 
-                                       class="btn btn-sm btn-primary w-100">
-                                        Ver Detalhes
-                                    </a>
-                                </div>
-                            </div>
+    <!-- ✅ PRODUTOS RELACIONADOS - COM VALIDAÇÃO -->
+{% if same_category_products %}
+<div class="row mt-5">
+    <div class="col-12">
+        <h4 class="mb-4">🛍️ Produtos Relacionados</h4>
+        <div class="row">
+            {% for related_product in same_category_products %}
+                <!-- ✅ VERIFICAÇÃO DE PRODUTO VÁLIDO -->
+                {% if related_product and related_product.id and related_product.id > 0 %}
+                <div class="col-md-6 col-lg-3 mb-4">
+                    <div class="card h-100 product-card">
+                        <div class="card-body">
+                            <h6 class="card-title">{{ related_product.name }}</h6>
+                            <p class="card-text text-muted small">
+                                {{ related_product.category }}
+                            </p>
+                            <p class="card-text fw-bold text-primary">
+                                R$ {{ related_product.price }}
+                            </p>
+                            <!-- ✅ LINK SEGURO -->
+                            <a href="{% url 'recommendations:product_detail' related_product.id %}" 
+                               class="btn btn-sm btn-outline-primary w-100">
+                                Ver Detalhes
+                            </a>
                         </div>
-                        {% endif %}
-                        {% endfor %}
                     </div>
                 </div>
-            </div>
+                {% else %}
+                    <!-- ⚠️ Produto inválido é silenciosamente ignorado -->
+                {% endif %}
+            {% endfor %}
         </div>
     </div>
-    {% endif %}
+</div>
+{% else %}
+<!-- ✅ MENSAGEM QUANDO NÃO HÁ PRODUTOS RELACIONADOS -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h5>📦 Explore Outros Produtos</h5>
+            <p class="mb-0">Não encontramos produtos similares no momento.</p>
+            <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-primary mt-2">
+                Explorar Todos os Produtos
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
 
     <!-- DEBUG Section (remover depois que funcionar) -->
     <div class="row mt-4">
@@ -283,6 +301,295 @@
 
 {% block extra_js %}
 <script>
+// ✅ BLOQUEIA ACESSO A ID ZERO
+document.addEventListener('DOMContentLoaded', function() {
+    // Verifica se a URL atual tem ID zero
+    const currentPath = window.location.pathname;
+    if (currentPath.includes('/product/0/') || currentPath.includes('/product/0')) {
+        console.error('❌ URL com ID zero detectada - Redirecionando...');
+        window.location.href = '/'; // Redireciona para home
+        return;
+    }
+});
+
+// Função para obter o token CSRF - ESSENCIAL PARA A IA FUNCIONAR
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Função para mostrar toast
+function showToast(message, type = 'info') {
+    // Remover toasts existentes
+    document.querySelectorAll('.alert.position-fixed').forEach(toast => {
+        toast.remove();
+    });
+
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+    toast.innerHTML = `
+        <div class="d-flex align-items-center">
+            <span class="flex-grow-1">${message}</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto-remover após 4 segundos
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 4000);
+}
+
+// ==============================================
+// FUNÇÕES DE IA - VERSÃO CORRIGIDA
+// ==============================================
+
+function generateProductDescription(productId, productName, productCategory, productPrice, productFeatures) {
+    console.log(`🤖 GERANDO DESCRIÇÃO IA para: ${productName}`);
+    
+    const button = document.getElementById('generateDescriptionBtn');
+    const originalHTML = button.innerHTML;
+    
+    // Estado de loading
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando com IA...';
+    button.disabled = true;
+    button.classList.add('disabled');
+    
+    // Timeout de segurança (15 segundos)
+    const safetyTimeout = setTimeout(() => {
+        console.warn('⏰ Timeout de segurança ativado');
+        resetButtonState(button, originalHTML);
+        showToast('⏰ A geração está demorando muito. Tente novamente.', 'warning');
+    }, 15000);
+    
+    // Fazer requisição para a API de IA
+    fetch("{% url 'recommendations:generate_description_api' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            product_name: productName || 'Produto sem nome',
+            category: productCategory || 'Geral',
+            price: productPrice || '0',
+            features: productFeatures || ''
+        })
+    })
+    .then(response => {
+        clearTimeout(safetyTimeout);
+        console.log('📩 Status da resposta:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`Erro HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('✅ Resposta da API:', data);
+        
+        if (data.status === 'success') {
+            showAIDescriptionModal(data.description, productName, productId);
+            showToast('✅ Descrição gerada com sucesso!', 'success');
+        } else {
+            throw new Error(data.message || 'Erro na geração da descrição');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro ao gerar descrição:', error);
+        showToast('❌ Erro: ' + error.message, 'error');
+        
+        // Fallback: mostrar modal com mensagem de erro
+        showErrorModal(error.message);
+    })
+    .finally(() => {
+        clearTimeout(safetyTimeout);
+        resetButtonState(button, originalHTML);
+    });
+}
+
+function resetButtonState(button, originalHTML) {
+    button.innerHTML = originalHTML;
+    button.disabled = false;
+    button.classList.remove('disabled');
+}
+
+function showErrorModal(errorMessage) {
+    // Remover modal de erro existente
+    const existingModal = document.getElementById('errorModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const errorModal = document.createElement('div');
+    errorModal.id = 'errorModal';
+    errorModal.innerHTML = `
+        <div class="modal fade" id="errorModalInstance" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-exclamation-triangle"></i> Erro na Geração
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Não foi possível gerar a descrição com IA. Motivo:</p>
+                        <div class="alert alert-warning">
+                            <strong>${errorMessage}</strong>
+                        </div>
+                        <p class="text-muted small">
+                            Verifique se a API está configurada corretamente no arquivo .env
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(errorModal);
+    const modal = new bootstrap.Modal(document.getElementById('errorModalInstance'));
+    modal.show();
+    
+    // Remover modal após fechar
+    errorModal.addEventListener('hidden.bs.modal', function() {
+        errorModal.remove();
+    });
+}
+
+function showAIDescriptionModal(description, productName, productId) {
+    // Remover modal existente
+    const existingModal = document.getElementById('aiDescriptionModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'aiDescriptionModal';
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-robot"></i> Descrição Gerada por IA
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição para: <span id="modalProductName" class="text-primary">${productName}</span></label>
+                        <textarea class="form-control" id="aiGeneratedDescription" rows="10" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6;"></textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="bi bi-info-circle"></i>
+                            Esta descrição foi gerada por IA. Você pode editá-la antes de aplicar ao produto.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="copyAIDescriptionBtn">
+                        <i class="bi bi-clipboard"></i> Copiar
+                    </button>
+                    <button type="button" class="btn btn-success" id="applyAIDescriptionBtn">
+                        <i class="bi bi-check-circle"></i> Aplicar ao Produto
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Preencher o modal com a descrição gerada
+    const bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
+    
+    // Aguardar o modal ser mostrado para preencher os dados
+    modal.addEventListener('shown.bs.modal', function() {
+        document.getElementById('aiGeneratedDescription').value = description;
+        document.getElementById('modalProductName').textContent = productName;
+        
+        // Configurar eventos dos botões do modal
+        document.getElementById('copyAIDescriptionBtn').addEventListener('click', function() {
+            const descriptionText = document.getElementById('aiGeneratedDescription');
+            descriptionText.select();
+            document.execCommand('copy');
+            showToast('✅ Descrição copiada para a área de transferência!', 'success');
+        });
+        
+        document.getElementById('applyAIDescriptionBtn').addEventListener('click', function() {
+            const newDescription = document.getElementById('aiGeneratedDescription').value;
+            updateProductDescription(productId, newDescription);
+        });
+    });
+}
+
+function updateProductDescription(productId, newDescription) {
+    console.log(`📝 ATUALIZANDO DESCRIÇÃO do produto ${productId}`);
+    
+    // ✅ CORREÇÃO: URL absoluta sem template tags
+    fetch(`/api/product/${productId}/update-description/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            description: newDescription
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast('✅ Descrição atualizada com sucesso!', 'success');
+            
+            // Fechar o modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('aiDescriptionModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Atualizar a descrição na página
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro ao atualizar descrição:', error);
+        showToast('❌ Erro ao atualizar descrição: ' + error.message, 'error');
+    });
+}
+
+// ==============================================
+// CÓDIGO PRINCIPAL - EXECUTADO AO CARREGAR A PÁGINA
+// ==============================================
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Página de Detalhes do Produto Carregada');
     console.log('🔍 User Rating:', '{{ user_rating }}');
@@ -338,22 +645,57 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Gerar Descrição com IA - CONFIGURAÇÃO DO BOTÃO
+    const generateBtn = document.getElementById('generateDescriptionBtn');
+    if (generateBtn) {
+        console.log('✅ Botão de IA encontrado e configurado');
+        generateBtn.addEventListener('click', function() {
+            console.log('🎯 Botão de IA clicado!');
+            
+            const productId = this.getAttribute('data-product-id');
+            const productName = this.getAttribute('data-product-name');
+            const productCategory = this.getAttribute('data-product-category');
+            const productPrice = this.getAttribute('data-product-price');
+            const productFeatures = this.getAttribute('data-product-features');
+            
+            console.log('📦 Dados do produto:', {
+                productId, productName, productCategory, productPrice, productFeatures
+            });
+            
+            generateProductDescription(productId, productName, productCategory, productPrice, productFeatures);
+        });
+    } else {
+        console.warn('⚠️ Botão generateDescriptionBtn não encontrado');
+    }
+
     // Carregar produtos relacionados
     loadRelatedProducts();
 
     // Registrar visualização do produto
     recordInteraction('{{ product.id }}', 'view');
 
-    // Função para carregar produtos relacionados
+    // Função para carregar produtos relacionados - CORRIGIDA
     function loadRelatedProducts() {
         const container = document.getElementById('related-products');
         
-        fetch(`/api/get-recommendations/?product_id={{ product.id }}`)
+        fetch(`{% url "recommendations:get_recommendations_ajax" %}?product_id={{ product.id }}`)
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success' && data.recommendations && data.recommendations.length > 0) {
                     let html = '';
+                    let validCount = 0;
+                    
                     data.recommendations.slice(0, 4).forEach(product => {
+                        // ✅ VERIFICAÇÃO DE SEGURANÇA
+                        if (!product.id || product.id <= 0) {
+                            console.warn('⚠️ Produto relacionado com ID inválido ignorado:', product);
+                            return;
+                        }
+                        
+                        validCount++;
+                        // ✅ CORREÇÃO: URL absoluta sem template tags
+                        const productUrl = `/product/${product.id}/`;
+                        
                         html += `
                             <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
                                 <div class="card h-100 product-card" data-product-id="${product.id}">
@@ -364,12 +706,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                         </div>`
                                     }
                                     <div class="card-body">
-                                        <h6 class="card-title">${product.name}</h6>
-                                        <p class="card-text small text-muted">${product.category}</p>
-                                        <p class="card-text fw-bold text-success">R$ ${product.price}</p>
+                                        <h6 class="card-title">${product.name || 'Produto'}</h6>
+                                        <p class="card-text small text-muted">${product.category || 'Geral'}</p>
+                                        <p class="card-text fw-bold text-success">R$ ${product.price || '0,00'}</p>
                                     </div>
                                     <div class="card-footer bg-transparent">
-                                        <a href="/product/${product.id}/" class="btn btn-sm btn-primary w-100">
+                                        <a href="${productUrl}" class="btn btn-sm btn-primary w-100">
                                             Ver Detalhes
                                         </a>
                                     </div>
@@ -377,12 +719,25 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         `;
                     });
-                    container.innerHTML = html;
+                    
+                    if (validCount > 0) {
+                        container.innerHTML = html;
+                        console.log(`✅ ${validCount} produtos relacionados carregados`);
+                    } else {
+                        container.innerHTML = `
+                            <div class="col-12 text-center">
+                                <p class="text-muted">Nenhum produto relacionado válido encontrado.</p>
+                                <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-outline-primary">
+                                    Explorar Todos os Produtos
+                                </a>
+                            </div>
+                        `;
+                    }
                 } else {
                     container.innerHTML = `
                         <div class="col-12 text-center">
                             <p class="text-muted">Nenhum produto relacionado encontrado.</p>
-                            <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary">
+                            <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-outline-primary">
                                 Explorar Todos os Produtos
                             </a>
                         </div>
@@ -399,7 +754,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // Função para avaliar produto - VERSÃO MELHORADA
+    // Função para avaliar produto
     function rateProduct(productId, rating) {
         console.log(`⭐ AVALIANDO: Produto ${productId} com ${rating} estrelas`);
         
@@ -414,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function() {
             star.disabled = true;
         });
 
-        fetch('{% url "record_interaction_api" %}', {
+        fetch('{% url "recommendations:record_interaction_api" %}', {
             method: 'POST',
             body: formData,
             headers: {
@@ -474,7 +829,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('interaction_type', interactionType);
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-        fetch('{% url "record_interaction_api" %}', {
+        fetch('{% url "recommendations:record_interaction_api" %}', {
             method: 'POST',
             body: formData,
             headers: {
@@ -492,33 +847,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             console.error('❌ Erro ao registrar interação:', error);
         });
-    }
-
-    // Função para mostrar toast
-    function showToast(message, type = 'info') {
-        // Remover toasts existentes
-        document.querySelectorAll('.alert.position-fixed').forEach(toast => {
-            toast.remove();
-        });
-
-        const toast = document.createElement('div');
-        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        toast.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
-        toast.innerHTML = `
-            <div class="d-flex align-items-center">
-                <span class="flex-grow-1">${message}</span>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
-        
-        document.body.appendChild(toast);
-        
-        // Auto-remover após 4 segundos
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.remove();
-            }
-        }, 4000);
     }
 });
 </script>
@@ -543,6 +871,25 @@ document.addEventListener('DOMContentLoaded', function() {
 .breadcrumb {
     background-color: transparent;
     padding: 0;
+}
+/* Estados do botão de IA */
+#generateDescriptionBtn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+#generateDescriptionBtn:not(.disabled):hover {
+    background-color: #0d6efd;
+    color: white;
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+}
+/* Loading animation */
+.bi-hourglass-split {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 </style>
 {% endblock %}

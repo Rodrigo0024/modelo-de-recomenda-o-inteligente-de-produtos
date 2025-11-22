@@ -1,0 +1,91 @@
+{% extends 'recommendations/base.html' %}
+
+{% block title %}Status da IA Generativa{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>🤖 Status da IA Generativa</h1>
+            <p class="lead">Verifique o status e configuração do serviço de IA</p>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">🔧 Configuração</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Provedor:</strong></td>
+                                    <td>{{ provider|default:"deepseek" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Modelo:</strong></td>
+                                    <td>{{ model|default:"deepseek-chat" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>API Key:</strong></td>
+                                    <td>
+                                        {% if api_key_preview != "Não configurada" %}
+                                            <span class="badge bg-success">✅ {{ api_key_preview }}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">❌ Não configurada</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        {% if api_configured %}
+                                            <span class="badge bg-success">✅ Configurado</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">❌ Não configurado</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h5>🚀 Ações Rápidas</h5>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'recommendations:generate_description_page' %}" class="btn btn-success">
+                            🪄 Gerar Descrição com IA
+                        </a>
+                        <a href="{% url 'recommendations:test_ai' %}" class="btn btn-outline-primary">
+                            🧪 Testar IA Generativa
+                        </a>
+                        
+                        {% if not api_configured %}
+                        <div class="alert alert-warning mt-3">
+                            <h6>⚠️ Configuração Necessária</h6>
+                            <p class="mb-2">Para usar a IA Generativa, você precisa:</p>
+                            <ol class="mb-0">
+                                <li>Obter uma API Key da DeepSeek</li>
+                                <li>Configurar no arquivo .env</li>
+                                <li>Reiniciar o servidor</li>
+                            </ol>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if api_configured %}
+            <div class="alert alert-success mt-4">
+                <h5>✅ IA Generativa Disponível</h5>
+                <p class="mb-0">O serviço de IA está configurado e pronto para uso! Você pode gerar descrições de produtos e testar as funcionalidades.</p>
+            </div>
+            {% else %}
+            <div class="alert alert-warning mt-4">
+                <h5>⚠️ Configuração Pendente</h5>
+                <p class="mb-0">A IA Generativa não está configurada. Configure as variáveis de ambiente para ativar o serviço.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

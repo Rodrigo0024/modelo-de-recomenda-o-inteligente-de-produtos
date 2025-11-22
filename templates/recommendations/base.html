@@ -26,7 +26,8 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'product_explorer' %}">
+            <!-- ✅ CORRIGIDO: Adicione o namespace 'recommendations:' -->
+            <a class="navbar-brand" href="{% url 'recommendations:product_explorer' %}">
                 🛍️ Sistema de Recomendações
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -34,10 +35,11 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="navbar-nav me-auto">
-                    <a class="nav-link" href="{% url 'product_explorer' %}">🏠 Explorar Produtos</a>
-                    <a class="nav-link" href="{% url 'user_dashboard' %}">📊 Meu Dashboard</a>  <!-- 👈 CORRIGIDO: 'dashboard' -> 'user_dashboard' -->
-                    <a class="nav-link" href="{% url 'train_recommender' %}">🎯 Treinar Modelo</a>
-                    <a class="nav-link" href="{% url 'model_status' %}">🤖 Status</a>
+                    <!-- ✅ CORRIGIDO: Adicione o namespace 'recommendations:' -->
+                    <a class="nav-link" href="{% url 'recommendations:product_explorer' %}">🏠 Explorar Produtos</a>
+                    <a class="nav-link" href="{% url 'recommendations:user_dashboard' %}">📊 Meu Dashboard</a>
+                    <a class="nav-link" href="{% url 'recommendations:train_recommender' %}">🎯 Treinar Modelo</a>
+                    <a class="nav-link" href="{% url 'recommendations:model_status' %}">🤖 Status</a>
                 </div>
                 <div class="navbar-nav">
                     {% if user.is_authenticated %}

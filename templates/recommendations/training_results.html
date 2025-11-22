@@ -68,14 +68,14 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6 text-center mb-3">
-                                <a href="{% url 'user_recommendations' %}" class="btn btn-success btn-lg w-100">
+                                <a href="{% url 'recommendations:user_recommendations' %}" class="btn btn-success btn-lg w-100">
                                     <i class="fas fa-star me-2"></i>
                                     Testar Recomendações
                                 </a>
                                 <small class="text-muted">Veja as recomendações geradas pelo modelo</small>
                             </div>
                             <div class="col-md-6 text-center mb-3">
-                                <a href="{% url 'model_status' %}" class="btn btn-info btn-lg w-100">
+                                <a href="{% url 'recommendations:model_status' %}" class="btn btn-info btn-lg w-100">
                                     <i class="fas fa-chart-bar me-2"></i>
                                     Ver Status Detalhado
                                 </a>
@@ -107,11 +107,11 @@
                 </div>
 
                 <div class="text-center mt-4">
-                    <a href="{% url 'train_recommender' %}" class="btn btn-primary me-2">
+                    <a href="{% url 'recommendations:train_recommender' %}" class="btn btn-primary me-2">
                         <i class="fas fa-redo me-1"></i>
                         Tentar Novamente
                     </a>
-                    <a href="{% url 'model_status' %}" class="btn btn-outline-secondary">
+                    <a href="{% url 'recommendations:model_status' %}" class="btn btn-outline-secondary">
                         <i class="fas fa-chart-bar me-1"></i>
                         Ver Status
                     </a>
@@ -122,7 +122,7 @@
 
         <!-- Navegação -->
         <div class="text-center mt-4">
-            <a href="{% url 'home' %}" class="btn btn-outline-primary">
+            <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-outline-primary">
                 <i class="fas fa-home me-1"></i>
                 Voltar para Home
             </a>

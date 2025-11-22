@@ -54,8 +54,8 @@
                 <h5 class="mb-0">⚡ Ações</h5>
             </div>
             <div class="card-body">
-                <a href="{% url 'train_recommender' %}" class="btn btn-primary">🎯 Treinar Modelo</a>
-                <a href="{% url 'user_recommendations' %}" class="btn btn-success">📊 Ver Recomendações</a>
+                <a href="{% url 'recommendations:train_recommender' %}" class="btn btn-primary">🎯 Treinar Modelo</a>
+                <a href="{% url 'recommendations:user_recommendations' %}" class="btn btn-success">📊 Ver Recomendações</a>
                 <a href="{% url 'admin:index' %}" class="btn btn-secondary">⚙️ Painel Admin</a>
             </div>
         </div>

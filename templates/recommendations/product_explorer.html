@@ -11,13 +11,16 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h1>🛍️ Explorar Produtos</h1>
                 <div>
-                    <a href="{% url 'user_dashboard' %}" class="btn btn-outline-primary me-2">
+                    <!-- ✅ CORRIGIDO: Com namespace -->
+                    <a href="{% url 'recommendations:user_dashboard' %}" class="btn btn-outline-primary me-2">
                         📊 Meu Dashboard
                     </a>
-                    <a href="{% url 'model_status' %}" class="btn btn-outline-secondary">
+                    <!-- ✅ CORRIGIDO: Com namespace -->
+                    <a href="{% url 'recommendations:model_status' %}" class="btn btn-outline-secondary">
                         🤖 Status do Modelo
                     </a>
-                    <a href="{% url 'train_recommender' %}" class="btn btn-outline-warning ms-2">
+                    <!-- ✅ CORRIGIDO: Com namespace -->
+                    <a href="{% url 'recommendations:train_recommender' %}" class="btn btn-outline-warning ms-2">
                         🎯 Treinar Modelo
                     </a>
                 </div>
@@ -28,7 +31,8 @@
             {% if not user_recommendations %}
             <div class="alert alert-warning alert-dismissible fade show" role="alert">
                 <strong>💡 Dica:</strong> Treine o modelo primeiro para ver recomendações personalizadas!
-                <a href="{% url 'train_recommender' %}" class="alert-link">Treinar Modelo Agora</a>
+                <!-- ✅ CORRIGIDO: Com namespace -->
+                <a href="{% url 'recommendations:train_recommender' %}" class="alert-link">Treinar Modelo Agora</a>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
             {% endif %}
@@ -44,11 +48,13 @@
                 </div>
                 <div class="card-body">
                     <div class="d-flex flex-wrap gap-2">
-                        <a href="{% url 'product_explorer' %}" class="btn btn-outline-primary">
+                        <!-- ✅ CORRIGIDO: Com namespace -->
+                        <a href="{% url 'recommendations:product_explorer' %}" class="btn btn-outline-primary">
                             Todos
                         </a>
                         {% for category in categories %}
-                        <a href="{% url 'category_products' category %}" class="btn btn-outline-secondary">
+                        <!-- ✅ CORRIGIDO: Com namespace -->
+                        <a href="{% url 'recommendations:category_products' category %}" class="btn btn-outline-secondary">
                             {{ category }}
                         </a>
                         {% empty %}
@@ -115,7 +121,8 @@
                                     <p class="card-text fw-bold text-primary">R$ {{ product.price }}</p>
                                 </div>
                                 <div class="card-footer bg-transparent">
-                                    <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-primary w-100">
+                                    <!-- ✅ CORRIGIDO: Com namespace -->
+                                    <a href="{% url 'recommendations:product_detail' product.id %}" class="btn btn-sm btn-primary w-100">
                                         Ver Detalhes
                                     </a>
                                 </div>
@@ -214,7 +221,8 @@
                                 </div>
                                 <div class="card-footer bg-transparent">
                                     <div class="d-grid gap-2">
-                                        <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-primary">
+                                        <!-- ✅ CORRIGIDO: Com namespace -->
+                                        <a href="{% url 'recommendations:product_detail' product.id %}" class="btn btn-sm btn-primary">
                                             👀 Ver Detalhes
                                         </a>
                                         <button class="btn btn-sm btn-outline-success add-to-wishlist" data-product-id="{{ product.id }}">
@@ -320,7 +328,8 @@
                                         <p class="card-text small text-muted mb-1">{{ product.category }}</p>
                                         <p class="card-text small fw-bold text-primary">R$ {{ product.price }}</p>
                                         <div class="d-grid gap-1">
-                                            <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-outline-primary">
+                                            <!-- ✅ CORRIGIDO: Com namespace -->
+                                            <a href="{% url 'recommendations:product_detail' product.id %}" class="btn btn-sm btn-outline-primary">
                                                 Ver Produto
                                             </a>
                                             <button class="btn btn-sm btn-outline-success add-to-wishlist" data-product-id="{{ product.id }}">
@@ -336,7 +345,8 @@
                                         <i class="fas fa-robot fa-2x text-muted"></i>
                                     </div>
                                     <p class="text-muted small mb-2">Treine o modelo para ver recomendações personalizadas</p>
-                                    <a href="{% url 'train_recommender' %}" class="btn btn-sm btn-warning">
+                                    <!-- ✅ CORRIGIDO: Com namespace -->
+                                    <a href="{% url 'recommendations:train_recommender' %}" class="btn btn-sm btn-warning">
                                         🎯 Treinar Modelo
                                     </a>
                                 </div>
@@ -354,7 +364,8 @@
                         <div id="user-stats">
                             <div class="text-center">
                                 <p class="text-muted small mb-2">Interaja com produtos para ver suas estatísticas</p>
-                                <a href="{% url 'user_dashboard' %}" class="btn btn-sm btn-outline-primary">
+                                <!-- ✅ CORRIGIDO: Com namespace -->
+                                <a href="{% url 'recommendations:user_dashboard' %}" class="btn btn-sm btn-outline-primary">
                                     📊 Ver Dashboard Completo
                                 </a>
                             </div>

@@ -1,0 +1,473 @@
+{% extends 'recommendations/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>🪄 {{ title }}</h1>
+            <p class="lead">Gere descrições atraentes para produtos usando IA Generativa</p>
+            
+            <!-- Status da IA -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="alert {% if ai_configured %}alert-success{% else %}alert-warning{% endif %}">
+                        <h4><i class="bi bi-robot"></i> Status do Sistema de IA</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Configuração:</strong> 
+                                {% if ai_configured %}
+                                    <span class="badge bg-success">✅ {{ api_status }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">⚠️ {{ api_status }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Modelo:</strong> {{ model }}<br>
+                                <strong>Provedor:</strong> {{ provider|title }}
+                            </div>
+                        </div>
+                        {% if not ai_configured %}
+                        <hr>
+                        <small class="text-muted">
+                            ⚠️ Para usar esta funcionalidade, configure a DEEPSEEK_API_KEY no arquivo .env
+                        </small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5><i class="bi bi-lightning"></i> Ação Rápida</h5>
+                            <button class="btn btn-outline-primary btn-sm w-100 mb-2" id="quickTestBtn">
+                                Testar Conexão IA
+                            </button>
+                            <button class="btn btn-outline-success btn-sm w-100" onclick="loadSampleData()">
+                                Carregar Exemplo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulário de Geração -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-magic"></i> Gerar Nova Descrição
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="generateForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="productName" class="form-label">
+                                    <i class="bi bi-tag"></i> Nome do Produto *
+                                </label>
+                                <input type="text" class="form-control" id="productName" 
+                                       placeholder="Ex: Smartphone Android 5G" required>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="productCategory" class="form-label">
+                                    <i class="bi bi-grid"></i> Categoria
+                                </label>
+                                <select class="form-select" id="productCategory">
+                                    <option value="">Selecione uma categoria...</option>
+                                    {% for category in categories %}
+                                        {% if category %}
+                                            <option value="{{ category }}">{{ category }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <option value="outra">➕ Outra categoria...</option>
+                                </select>
+                                <input type="text" class="form-control mt-2 d-none" id="customCategory" 
+                                       placeholder="Digite a nova categoria...">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="productPrice" class="form-label">
+                                    <i class="bi bi-currency-dollar"></i> Preço (R$)
+                                </label>
+                                <input type="number" class="form-control" id="productPrice" 
+                                       placeholder="Ex: 1299.90" step="0.01" min="0">
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="productFeatures" class="form-label">
+                                    <i class="bi bi-list-check"></i> Características (opcional)
+                                </label>
+                                <textarea class="form-control" id="productFeatures" rows="2" 
+                                          placeholder="Ex: Tela 6.5\", 128GB, Câmera Tripla, Bateria 5000mAh..."></textarea>
+                                <div class="form-text">Separe as características por vírgula</div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-outline-secondary" id="testBtn" {% if not ai_configured %}disabled{% endif %}>
+                                <i class="bi bi-lightning-charge"></i> Testar Conexão
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="generateBtn" {% if not ai_configured %}disabled{% endif %}>
+                                <i class="bi bi-magic"></i> Gerar Descrição
+                            </button>
+                        </div>
+
+                        {% if not ai_configured %}
+                        <div class="alert alert-warning mt-3">
+                            <small>
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>Atenção:</strong> A IA não está configurada. Configure a DEEPSEEK_API_KEY no arquivo .env para usar esta funcionalidade.
+                            </small>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <!-- Resultado -->
+            <div class="card mt-4 d-none" id="resultCard">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-stars"></i> Descrição Gerada
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="loadingSpinner" class="text-center d-none">
+                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Gerando descrição...</span>
+                        </div>
+                        <p class="mt-3 text-muted">
+                            <i class="bi bi-robot"></i> A IA está gerando sua descrição...<br>
+                            <small>Isso pode levar alguns segundos</small>
+                        </p>
+                    </div>
+                    
+                    <div id="generatedContent" class="d-none">
+                        <div class="alert alert-success">
+                            <h6><i class="bi bi-check-circle"></i> Descrição gerada com sucesso!</h6>
+                            <small class="mb-0">Abaixo está a descrição gerada pela IA para o produto "<span id="productNameResult"></span>"</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Descrição do Produto:</label>
+                            <textarea class="form-control" id="generatedDescription" rows="8" readonly 
+                                      style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6;"></textarea>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="btn btn-success" id="copyBtn">
+                                <i class="bi bi-clipboard"></i> Copiar Descrição
+                            </button>
+                            <button class="btn btn-outline-primary" id="newGenerationBtn">
+                                <i class="bi bi-arrow-repeat"></i> Nova Geração
+                            </button>
+                            <button class="btn btn-outline-secondary" id="downloadBtn">
+                                <i class="bi bi-download"></i> Baixar como TXT
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Produtos Existentes -->
+            {% if products %}
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-box-seam"></i> Gerar para Produto Existente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Clique em um produto abaixo para preencher automaticamente o formulário:</p>
+                    <div class="row">
+                        {% for product in products %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 product-card">
+                                <div class="card-body">
+                                    <h6 class="card-title text-truncate" title="{{ product.name }}">
+                                        <i class="bi bi-box"></i> {{ product.name }}
+                                    </h6>
+                                    <p class="card-text small text-muted mb-2">
+                                        <strong><i class="bi bi-grid"></i> Categoria:</strong> 
+                                        {{ product.category|default:"Não definida" }}<br>
+                                        <strong><i class="bi bi-currency-dollar"></i> Preço:</strong> 
+                                        R$ {{ product.price }}<br>
+                                        {% if product.features %}
+                                        <strong><i class="bi bi-list-check"></i> Características:</strong> 
+                                        <span class="d-inline-block text-truncate" style="max-width: 200px;">
+                                            {{ product.features }}
+                                        </span>
+                                        {% endif %}
+                                    </p>
+                                    <button class="btn btn-sm btn-outline-primary w-100 load-product" 
+                                            data-id="{{ product.id }}"
+                                            data-name="{{ product.name }}"
+                                            data-category="{{ product.category }}"
+                                            data-price="{{ product.price }}"
+                                            data-features="{{ product.features }}">
+                                        <i class="bi bi-arrow-clockwise"></i> Usar Este Produto
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Função para obter o token CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Dados de exemplo
+function loadSampleData() {
+    document.getElementById('productName').value = 'Smartphone Premium 5G';
+    document.getElementById('productCategory').value = 'Eletrônicos';
+    document.getElementById('productPrice').value = '1599.90';
+    document.getElementById('productFeatures').value = 'Tela 6.7 polegadas, 256GB armazenamento, Câmera tripla 108MP, Bateria de longa duração, Carregamento rápido';
+    
+    // Scroll para o formulário
+    document.getElementById('generateForm').scrollIntoView({ behavior: 'smooth' });
+    
+    // Mostrar mensagem
+    showTempAlert('✅ Dados de exemplo carregados!', 'success');
+}
+
+// Mostrar alerta temporário
+function showTempAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.container').firstChild);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Controle da categoria customizada
+document.getElementById('productCategory').addEventListener('change', function() {
+    const customCategory = document.getElementById('customCategory');
+    if (this.value === 'outra') {
+        customCategory.classList.remove('d-none');
+        customCategory.required = true;
+    } else {
+        customCategory.classList.add('d-none');
+        customCategory.required = false;
+    }
+});
+
+// Carregar dados do produto
+document.querySelectorAll('.load-product').forEach(button => {
+    button.addEventListener('click', function() {
+        document.getElementById('productName').value = this.dataset.name;
+        document.getElementById('productCategory').value = this.dataset.category || '';
+        document.getElementById('productPrice').value = this.dataset.price || '';
+        document.getElementById('productFeatures').value = this.dataset.features || '';
+        
+        // Scroll para o formulário
+        document.getElementById('generateForm').scrollIntoView({ behavior: 'smooth' });
+        
+        showTempAlert(`✅ Dados do produto "${this.dataset.name}" carregados!`, 'success');
+    });
+});
+
+// Teste rápido de conexão
+document.getElementById('quickTestBtn').addEventListener('click', function() {
+    testAIConnection();
+});
+
+// Testar conexão com IA
+document.getElementById('testBtn').addEventListener('click', function() {
+    testAIConnection();
+});
+
+function testAIConnection() {
+    const button = document.getElementById('testBtn');
+    const originalText = button.innerHTML;
+    
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Testando...';
+    button.disabled = true;
+    
+    fetch("{% url 'recommendations:test_ai_connection' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showTempAlert('✅ ' + data.message, 'success');
+            console.log('Resposta da IA:', data.test_response);
+        } else {
+            showTempAlert('❌ ' + data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        showTempAlert('❌ Erro ao testar conexão: ' + error, 'danger');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+// Gerar descrição
+document.getElementById('generateForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const productName = document.getElementById('productName').value;
+    let category = document.getElementById('productCategory').value;
+    const price = document.getElementById('productPrice').value;
+    const features = document.getElementById('productFeatures').value;
+    
+    // Se categoria for "outra", usar o campo customizado
+    if (category === 'outra') {
+        category = document.getElementById('customCategory').value;
+        if (!category) {
+            showTempAlert('❌ Por favor, informe a categoria.', 'danger');
+            return;
+        }
+    }
+    
+    if (!productName) {
+        showTempAlert('❌ Por favor, informe o nome do produto.', 'danger');
+        return;
+    }
+    
+    const generateBtn = document.getElementById('generateBtn');
+    const originalText = generateBtn.innerHTML;
+    const resultCard = document.getElementById('resultCard');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const generatedContent = document.getElementById('generatedContent');
+    
+    // Mostrar loading
+    generateBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando...';
+    generateBtn.disabled = true;
+    resultCard.classList.remove('d-none');
+    loadingSpinner.classList.remove('d-none');
+    generatedContent.classList.add('d-none');
+    
+    // Fazer requisição
+    fetch("{% url 'recommendations:generate_description_api' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            product_name: productName,
+            category: category,
+            price: price,
+            features: features
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            document.getElementById('generatedDescription').value = data.description;
+            document.getElementById('productNameResult').textContent = productName;
+            loadingSpinner.classList.add('d-none');
+            generatedContent.classList.remove('d-none');
+            showTempAlert('✅ Descrição gerada com sucesso!', 'success');
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        loadingSpinner.classList.add('d-none');
+        showTempAlert('❌ Erro ao gerar descrição: ' + error.message, 'danger');
+    })
+    .finally(() => {
+        generateBtn.innerHTML = originalText;
+        generateBtn.disabled = false;
+    });
+});
+
+// Copiar descrição
+document.getElementById('copyBtn').addEventListener('click', function() {
+    const description = document.getElementById('generatedDescription');
+    description.select();
+    document.execCommand('copy');
+    
+    const button = this;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="bi bi-check2"></i> Copiado!';
+    button.classList.remove('btn-success');
+    button.classList.add('btn-secondary');
+    
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.classList.remove('btn-secondary');
+        button.classList.add('btn-success');
+    }, 2000);
+});
+
+// Nova geração
+document.getElementById('newGenerationBtn').addEventListener('click', function() {
+    document.getElementById('resultCard').classList.add('d-none');
+    document.getElementById('generatedContent').classList.add('d-none');
+});
+
+// Download como TXT
+document.getElementById('downloadBtn').addEventListener('click', function() {
+    const description = document.getElementById('generatedDescription').value;
+    const productName = document.getElementById('productName').value;
+    
+    const blob = new Blob([description], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `descricao-${productName.replace(/\s+/g, '-').toLowerCase()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showTempAlert('✅ Descrição baixada com sucesso!', 'success');
+});
+</script>
+
+<style>
+.product-card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.load-product:hover {
+    background-color: #0d6efd;
+    color: white;
+}
+</style>
+{% endblock %}

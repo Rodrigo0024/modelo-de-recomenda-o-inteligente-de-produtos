@@ -1,10 +1,39 @@
-"""
-Django settings for smart_recommendations project.
-"""
-
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+# Carrega variáveis do arquivo .env
+load_dotenv()
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ===========================================
+# CONFIGURAÇÕES PRINCIPAIS DO .env
+# ===========================================
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-change-in-production')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+# ===========================================
+# CONFIGURAÇÕES DE IA GENERATIVA
+# ===========================================
+
+# DeepSeek API Configuration
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', '')
+DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
+DEEPSEEK_MODEL = os.getenv('AI_MODEL', 'deepseek-chat')
+
+# Configurações gerais de IA
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'deepseek')
+AI_MAX_TOKENS = int(os.getenv('AI_MAX_TOKENS', '500'))
+AI_TEMPERATURE = float(os.getenv('AI_TEMPERATURE', '0.8'))
+
 
 SECRET_KEY = 'django-insecure-sua-chave-secreta-aqui-12345'
 DEBUG = True
@@ -90,3 +119,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Configurações de login/logout
 LOGIN_REDIRECT_URL = '/'  # Redireciona para home após login
 LOGOUT_REDIRECT_URL = '/'  # Redireciona para home após logout
+
+
+
+
